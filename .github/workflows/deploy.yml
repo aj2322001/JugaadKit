@@ -30,6 +30,16 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release --base-href /JugaadKit/
 
+      - name: Ensure static SEO files are deployed
+        run: |
+          cp web/sitemap.xml build/web/sitemap.xml
+          cp web/robots.txt build/web/robots.txt
+          cp web/.nojekyll build/web/.nojekyll
+          test -f build/web/sitemap.xml
+          test -f build/web/robots.txt
+          grep -q '<urlset' build/web/sitemap.xml
+          grep -q 'Sitemap: https://aj2322001.github.io/JugaadKit/sitemap.xml' build/web/robots.txt
+
       - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
 
