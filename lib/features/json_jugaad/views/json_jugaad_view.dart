@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:jugaadkit/core/constants/app_constants.dart';
+import 'package:jugaadkit/core/seo/seo_constants.dart';
+import 'package:jugaadkit/core/seo/seo_metadata.dart';
 import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_ui_state.dart';
 import 'package:jugaadkit/features/json_jugaad/view_models/json_jugaad_view_model.dart';
@@ -40,6 +42,11 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
 
   @override
   Widget build(BuildContext context) {
+    SeoMetadata.apply(
+      title: SeoConstants.jsonJugaadTitle,
+      description: SeoConstants.jsonJugaadDescription,
+    );
+
     return Scaffold(
       body: Column(
         children: [

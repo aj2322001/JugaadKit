@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routing/app_routes.dart';
+import '../../../core/seo/seo_constants.dart';
+import '../../../core/seo/seo_metadata.dart';
 import '../../../widgets/common/app_header.dart';
 
 class HomeView extends StatelessWidget {
@@ -15,6 +17,11 @@ class HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SeoMetadata.apply(
+      title: SeoConstants.homeTitle,
+      description: SeoConstants.homeDescription,
+    );
+
     final theme = Theme.of(context);
 
     return Scaffold(

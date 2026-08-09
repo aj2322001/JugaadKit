@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://aj2322001.github.io/JugaadKit/sitemap.xml

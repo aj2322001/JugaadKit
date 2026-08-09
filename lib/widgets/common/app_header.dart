@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/routing/app_routes.dart';
 import 'app_logo.dart';
 
 class AppHeader extends StatelessWidget {
@@ -32,7 +34,11 @@ class AppHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const AppLogo(),
+              InkWell(
+                onTap: () => context.go(AppRoutes.home),
+                borderRadius: BorderRadius.circular(6),
+                child: const AppLogo(),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
