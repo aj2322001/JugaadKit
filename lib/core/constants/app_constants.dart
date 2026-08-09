@@ -1,6 +1,7 @@
 abstract final class AppConstants {
   static const String appName = 'JugaadKit';
   static const String tagline = 'Developer tools for the messy stuff.';
+  static const String appIconAsset = 'assets/icons/app_icon.png';
 
   static const double maxContentWidth = 1280;
   static const double desktopBreakpoint = 900;

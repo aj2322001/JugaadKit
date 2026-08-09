@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
+import 'app_logo.dart';
 
 class AppHeader extends StatelessWidget {
   const AppHeader({
@@ -33,6 +34,8 @@ class AppHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
+              const AppLogo(),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
