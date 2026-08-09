@@ -6,17 +6,15 @@ import 'app_logo.dart';
 class AppHeader extends StatelessWidget {
   const AppHeader({
     super.key,
-    required this.themeMode,
     required this.onToggleTheme,
   });
 
-  final ThemeMode themeMode;
   final VoidCallback onToggleTheme;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = themeMode == ThemeMode.dark;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       width: double.infinity,

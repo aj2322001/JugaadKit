@@ -13,12 +13,10 @@ class JsonJugaadView extends StatefulWidget {
   const JsonJugaadView({
     super.key,
     required this.viewModel,
-    required this.themeMode,
     required this.onToggleTheme,
   });
 
   final JsonJugaadViewModel viewModel;
-  final ThemeMode themeMode;
   final VoidCallback onToggleTheme;
 
   @override
@@ -45,10 +43,7 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
     return Scaffold(
       body: Column(
         children: [
-          AppHeader(
-            themeMode: widget.themeMode,
-            onToggleTheme: widget.onToggleTheme,
-          ),
+          AppHeader(onToggleTheme: widget.onToggleTheme),
           Expanded(
             child: ListenableBuilder(
               listenable: widget.viewModel,

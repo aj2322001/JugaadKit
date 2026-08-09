@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'core/constants/app_constants.dart';
+import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/json_jugaad/view_models/json_jugaad_view_model.dart';
-import 'features/json_jugaad/views/json_jugaad_view.dart';
 
 class JugaadKitApp extends StatefulWidget {
   const JugaadKitApp({super.key});
@@ -14,12 +14,17 @@ class JugaadKitApp extends StatefulWidget {
 
 class _JugaadKitAppState extends State<JugaadKitApp> {
   late final JsonJugaadViewModel _jsonJugaadViewModel;
+  late final AppRouter _appRouter;
   ThemeMode _themeMode = ThemeMode.dark;
 
   @override
   void initState() {
     super.initState();
     _jsonJugaadViewModel = JsonJugaadViewModel();
+    _appRouter = AppRouter(
+      jsonJugaadViewModel: _jsonJugaadViewModel,
+      onToggleTheme: _toggleTheme,
+    );
   }
 
   @override
@@ -37,17 +42,13 @@ class _JugaadKitAppState extends State<JugaadKitApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _themeMode,
-      home: JsonJugaadView(
-        viewModel: _jsonJugaadViewModel,
-        themeMode: _themeMode,
-        onToggleTheme: _toggleTheme,
-      ),
+      routerConfig: _appRouter.router,
     );
   }
 }
