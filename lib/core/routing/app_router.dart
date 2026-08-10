@@ -21,7 +21,10 @@ class AppRouter {
     routes: [
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => HomeView(onToggleTheme: _onToggleTheme),
+        pageBuilder: (context, state) => _noTransitionPage(
+          state: state,
+          child: HomeView(onToggleTheme: _onToggleTheme),
+        ),
       ),
       GoRoute(
         path: AppRoutes.jsonParser,
@@ -29,9 +32,12 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.dataJugaad,
-        builder: (context, state) => JsonJugaadView(
-          viewModel: _jsonJugaadViewModel,
-          onToggleTheme: _onToggleTheme,
+        pageBuilder: (context, state) => _noTransitionPage(
+          state: state,
+          child: JsonJugaadView(
+            viewModel: _jsonJugaadViewModel,
+            onToggleTheme: _onToggleTheme,
+          ),
         ),
       ),
       GoRoute(
@@ -40,4 +46,14 @@ class AppRouter {
       ),
     ],
   );
+
+  static Page<void> _noTransitionPage({
+    required GoRouterState state,
+    required Widget child,
+  }) {
+    return NoTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+    );
+  }
 }

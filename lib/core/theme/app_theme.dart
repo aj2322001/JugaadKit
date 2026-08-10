@@ -103,6 +103,11 @@ abstract final class AppTheme {
         : const Color(0xFFE2E8F0);
 
     return base.copyWith(
+      headlineSmall: base.headlineSmall?.copyWith(
+        fontFamily: 'sans-serif',
+        fontWeight: FontWeight.w600,
+        color: bodyColor,
+      ),
       headlineMedium: base.headlineMedium?.copyWith(
         fontFamily: 'sans-serif',
         fontWeight: FontWeight.w700,

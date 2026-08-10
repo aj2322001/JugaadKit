@@ -15,7 +15,7 @@ class JugaadKitApp extends StatefulWidget {
 class _JugaadKitAppState extends State<JugaadKitApp> {
   late final JsonJugaadViewModel _jsonJugaadViewModel;
   late final AppRouter _appRouter;
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
@@ -35,8 +35,14 @@ class _JugaadKitAppState extends State<JugaadKitApp> {
 
   void _toggleTheme() {
     setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+      final platformBrightness =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      final isCurrentlyDark = switch (_themeMode) {
+        ThemeMode.dark => true,
+        ThemeMode.light => false,
+        ThemeMode.system => platformBrightness == Brightness.dark,
+      };
+      _themeMode = isCurrentlyDark ? ThemeMode.light : ThemeMode.dark;
     });
   }
 
