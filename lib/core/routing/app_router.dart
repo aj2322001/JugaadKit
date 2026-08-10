@@ -25,10 +25,18 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.jsonParser,
+        redirect: (context, state) => AppRoutes.dataJugaad,
+      ),
+      GoRoute(
+        path: AppRoutes.dataJugaad,
         builder: (context, state) => JsonJugaadView(
           viewModel: _jsonJugaadViewModel,
           onToggleTheme: _onToggleTheme,
         ),
+      ),
+      GoRoute(
+        path: '/:path(.*)',
+        redirect: (context, state) => AppRoutes.home,
       ),
     ],
   );

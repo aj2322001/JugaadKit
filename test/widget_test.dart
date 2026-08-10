@@ -16,7 +16,7 @@ void main() {
     expect(find.text('Tools'), findsOneWidget);
   });
 
-  testWidgets('Data Jugaad renders at /jsonParser', (tester) async {
+  testWidgets('Data Jugaad renders at /data_jugaad', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

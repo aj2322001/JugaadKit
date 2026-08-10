@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  # GitHub Pages deployment base path. Update only here when hosting changes.
+  FLUTTER_WEB_BASE_HREF: /JugaadKit/
+
 permissions:
   contents: read
   pages: write
@@ -28,7 +32,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web --release --base-href /JugaadKit/
+        run: flutter build web --release --base-href ${{ env.FLUTTER_WEB_BASE_HREF }}
 
       - name: Ensure static SEO files are deployed
         run: |
@@ -42,6 +46,7 @@ jobs:
           test -f build/web/favicon.png
           test -f build/web/favicon.ico
           grep -q '<urlset' build/web/sitemap.xml
+          grep -q 'https://aj2322001.github.io/JugaadKit/data_jugaad' build/web/sitemap.xml
           grep -q 'Sitemap: https://aj2322001.github.io/JugaadKit/sitemap.xml' build/web/robots.txt
           grep -q 'favicon.png' build/web/index.html
 
