@@ -35,10 +35,15 @@ jobs:
           cp web/sitemap.xml build/web/sitemap.xml
           cp web/robots.txt build/web/robots.txt
           cp web/.nojekyll build/web/.nojekyll
+          cp web/favicon.png build/web/favicon.png
+          cp web/favicon.ico build/web/favicon.ico
           test -f build/web/sitemap.xml
           test -f build/web/robots.txt
+          test -f build/web/favicon.png
+          test -f build/web/favicon.ico
           grep -q '<urlset' build/web/sitemap.xml
           grep -q 'Sitemap: https://aj2322001.github.io/JugaadKit/sitemap.xml' build/web/robots.txt
+          grep -q 'favicon.png' build/web/index.html
 
       - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
