@@ -52,9 +52,8 @@ class HomeView extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       _ToolCard(
-                        title: 'JSON Jugaad',
-                        description:
-                            'Paste messy JSON, explore the tree, and copy keys, values, or paths.',
+                        title: 'Data Jugaad',
+                        description: "Paste messy developer data. We'll figure it out.",
                         icon: Icons.data_object_outlined,
                         onTap: () => context.go(AppRoutes.jsonParser),
                       ),

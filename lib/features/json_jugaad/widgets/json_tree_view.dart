@@ -8,6 +8,7 @@ import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_builder.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_flatten.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
 
 import 'json_tree/json_bracket_row.dart';
 import 'json_tree/json_expandable_row.dart';
@@ -24,11 +25,13 @@ class JsonTreeView extends StatefulWidget {
     super.key,
     required this.rootValue,
     required this.searchController,
+    this.searchNavigator,
     this.onSearchChanged,
   });
 
   final Object? rootValue;
   final TextEditingController searchController;
+  final JsonTreeSearchNavigator? searchNavigator;
   final JsonTreeSearchListener? onSearchChanged;
 
   @override
@@ -47,6 +50,8 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
   String _searchQuery = '';
   JsonTreeSearchResult? _searchResult;
+  int? _activeMatchIndex;
+  GlobalKey? _scrollTargetKey;
   Timer? _hoverClearTimer;
   Timer? _searchDebounceTimer;
 
@@ -72,6 +77,8 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       _collapsedPaths.clear();
       _savedCollapsedPaths = null;
       _searchQuery = widget.searchController.text;
+      _activeMatchIndex = null;
+      _scrollTargetKey = null;
       _hoveredPath.value = null;
       _hoverClearTimer?.cancel();
       _rebuildVisibleRows();
@@ -113,9 +120,89 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     setState(() {
       _searchQuery = query;
       _runSearch(query);
+      final matchCount = _searchResult?.matchCount ?? 0;
+      if (matchCount == 0) {
+        _activeMatchIndex = null;
+        _scrollTargetKey = null;
+      } else {
+        _activeMatchIndex = 0;
+        _scrollTargetKey = GlobalKey();
+      }
       _rebuildVisibleRows();
     });
+    _notifySearchChanged();
+    if (_activeMatchIndex != null) {
+      _scrollToActiveMatch();
+    }
+  }
+
+  void _jumpToMatch(int delta) {
+    final matches = _searchResult?.matches;
+    if (matches == null || matches.isEmpty) {
+      return;
+    }
+
+    final current = _activeMatchIndex ?? 0;
+    var next = (current + delta) % matches.length;
+    if (next < 0) {
+      next = matches.length - 1;
+    }
+
+    setState(() {
+      _activeMatchIndex = next;
+      _scrollTargetKey = GlobalKey();
+      _rebuildVisibleRows();
+    });
+    _notifySearchChanged();
+    _scrollToActiveMatch();
+  }
+
+  String? get _activeMatchPath {
+    final index = _activeMatchIndex;
+    final matches = _searchResult?.matches;
+    if (index == null || matches == null || matches.isEmpty) {
+      return null;
+    }
+    return matches[index].path;
+  }
+
+  void _scrollToActiveMatch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final targetContext = _scrollTargetKey?.currentContext;
+      if (targetContext == null) {
+        return;
+      }
+      Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _notifySearchChanged() {
     widget.onSearchChanged?.call(_searchQuery, _searchResult);
+    final navigator = widget.searchNavigator;
+    if (navigator == null) {
+      return;
+    }
+
+    final matchCount = _searchResult?.matchCount ?? 0;
+    if (matchCount == 0 || _searchQuery.trim().isEmpty) {
+      navigator.clear();
+      return;
+    }
+
+    navigator.update(
+      matchCount: matchCount,
+      activeIndex: _activeMatchIndex ?? 0,
+      onPrevious: () => _jumpToMatch(-1),
+      onNext: () => _jumpToMatch(1),
+    );
   }
 
   void _runSearch(String query) {
@@ -181,10 +268,20 @@ class _JsonTreeViewState extends State<JsonTreeView> {
                 itemBuilder: (context, index) {
                   final row = _visibleRows[index];
                   final node = row.node;
+                  final activeMatchPath = _activeMatchPath;
+                  final isActiveSearchMatch =
+                      !row.isCloseBracket && node.path == activeMatchPath;
+                  final rowKey = isActiveSearchMatch
+                      ? (_scrollTargetKey ?? ValueKey(node.path))
+                      : ValueKey(
+                          row.isCloseBracket
+                              ? '${node.path}::close'
+                              : node.path,
+                        );
 
                   if (row.isCloseBracket) {
                     return JsonBracketRow(
-                      key: ValueKey('${node.path}::close'),
+                      key: rowKey,
                       node: node,
                       onHover: _onNodeHover,
                     );
@@ -192,23 +289,25 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
                   if (node.isExpandable) {
                     return JsonExpandableRow(
-                      key: ValueKey(node.path),
+                      key: rowKey,
                       node: node,
                       isExpanded: row.isExpanded,
                       searchQuery: _searchQuery,
                       searchResult: _searchResult,
                       hoveredPath: _hoveredPath,
+                      isActiveSearchMatch: isActiveSearchMatch,
                       onToggle: _toggleExpansion,
                       onHover: _onNodeHover,
                     );
                   }
 
                   return JsonValueRow(
-                    key: ValueKey(node.path),
+                    key: rowKey,
                     node: node,
                     searchQuery: _searchQuery,
                     searchResult: _searchResult,
                     hoveredPath: _hoveredPath,
+                    isActiveSearchMatch: isActiveSearchMatch,
                     onHover: _onNodeHover,
                   );
                 },

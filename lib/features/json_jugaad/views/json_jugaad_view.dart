@@ -4,7 +4,9 @@ import 'package:jugaadkit/core/constants/app_constants.dart';
 import 'package:jugaadkit/core/seo/seo_constants.dart';
 import 'package:jugaadkit/core/seo/seo_metadata.dart';
 import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.dart';
+import 'package:jugaadkit/features/json_jugaad/engine/confidence.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_ui_state.dart';
+import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/view_models/json_jugaad_view_model.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/input_panel.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/output_panel.dart';
@@ -77,6 +79,23 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                                 final transformationSteps = state.result?.steps ??
                                     state.error?.partialSteps ??
                                     const [];
+                                final confidence = state.result?.confidence ??
+                                    state.error?.confidence ??
+                                    Confidence.none;
+                                final detectionSummary =
+                                    state.result?.detectionSummary;
+                                final showDetectionMeta =
+                                    state.processingMode == ProcessingMode.auto &&
+                                        state.status == JsonJugaadStatus.success &&
+                                        detectionSummary != null;
+                                final ambiguousError =
+                                    state.status == JsonJugaadStatus.error &&
+                                            state.processingMode ==
+                                                ProcessingMode.auto &&
+                                            (state.error?.isAmbiguousAutoFailure ??
+                                                false)
+                                        ? state.error
+                                        : null;
 
                                 final inputPanel = InputPanel(
                                   controller: _inputController,
@@ -85,11 +104,19 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                                     _inputController.clear();
                                     widget.viewModel.clearInput();
                                   },
+                                  processingMode: state.processingMode,
+                                  onProcessingModeChanged:
+                                      widget.viewModel.setProcessingMode,
+                                  onTryAs: widget.viewModel.tryAs,
                                   isProcessing:
                                       state.status == JsonJugaadStatus.processing,
                                   transformationSteps: transformationSteps,
                                   showExplorerHint:
                                       state.status == JsonJugaadStatus.success,
+                                  detectionSummary: detectionSummary,
+                                  confidence: confidence,
+                                  showDetectionMeta: showDetectionMeta,
+                                  ambiguousError: ambiguousError,
                                 );
 
                                 final outputPanel = OutputPanel(

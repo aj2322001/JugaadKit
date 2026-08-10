@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
+import 'package:jugaadkit/features/json_jugaad/engine/timestamp_detector.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/theme/json_syntax_colors.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_copy_util.dart';
@@ -20,6 +21,7 @@ class JsonValueRow extends StatelessWidget {
     required this.searchQuery,
     required this.searchResult,
     required this.hoveredPath,
+    this.isActiveSearchMatch = false,
     required this.onHover,
   });
 
@@ -27,6 +29,7 @@ class JsonValueRow extends StatelessWidget {
   final String searchQuery;
   final JsonTreeSearchResult? searchResult;
   final ValueNotifier<String?> hoveredPath;
+  final bool isActiveSearchMatch;
   final JsonTreeHoverCallback onHover;
 
   Future<void> _copyPath(BuildContext context) async {
@@ -39,6 +42,7 @@ class JsonValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colors = JsonSyntaxColors.of(context);
     final match = searchResult?.matchFor(node.path);
     final keyStyle = TextStyle(
@@ -60,61 +64,84 @@ class JsonValueRow extends StatelessWidget {
         return RepaintBoundary(
           child: MouseRegion(
             onEnter: (_) => onHover(node),
-            child: Padding(
-              padding: EdgeInsets.only(left: 16.0 + (node.depth * 16)),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (node.key != null) ...[
-                          Flexible(
-                            child: JsonTreeCopyTarget(
-                              text: node.key!,
-                              copyType: CopyFeedbackType.key,
-                              child: HighlightedText(
+            child: SearchMatchHighlight(
+              isActive: isActiveSearchMatch,
+              child: Padding(
+                padding: EdgeInsets.only(left: 16.0 + (node.depth * 16)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (node.key != null) ...[
+                            Flexible(
+                              child: JsonTreeCopyTarget(
                                 text: node.key!,
-                                query: match?.keyMatches == true
-                                    ? searchQuery
-                                    : null,
-                                highlightColor: colors.searchHighlight,
-                                style: keyStyle,
+                                copyType: CopyFeedbackType.key,
+                                child: HighlightedText(
+                                  text: node.key!,
+                                  query: match?.keyMatches == true
+                                      ? searchQuery
+                                      : null,
+                                  highlightColor: colors.searchHighlight,
+                                  style: keyStyle,
+                                ),
                               ),
                             ),
-                          ),
-                          Text(
-                            ': ',
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 13,
-                              color: colors.structure.withValues(alpha: 0.55),
+                            Text(
+                              ': ',
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                                color:
+                                    colors.structure.withValues(alpha: 0.55),
+                              ),
+                            ),
+                          ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                JsonTreeCopyTarget(
+                                  text: JsonCopyUtil.valueForClipboard(node),
+                                  copyType: CopyFeedbackType.value,
+                                  child: HighlightedText(
+                                    text: _formattedValue(),
+                                    query: match?.valueMatches == true
+                                        ? searchQuery
+                                        : null,
+                                    highlightColor: colors.searchHighlight,
+                                    style: valueStyle,
+                                  ),
+                                ),
+                                if (_timestampHint != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      'timestamp ${_timestampHint!.label}',
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        fontFamily: 'monospace',
+                                        fontSize: 10,
+                                        color: theme
+                                            .colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
-                        Expanded(
-                          child: JsonTreeCopyTarget(
-                            text: JsonCopyUtil.valueForClipboard(node),
-                            copyType: CopyFeedbackType.value,
-                            child: HighlightedText(
-                              text: _formattedValue(),
-                              query: match?.valueMatches == true
-                                  ? searchQuery
-                                  : null,
-                              highlightColor: colors.searchHighlight,
-                              style: valueStyle,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  JsonTreeTrailingActions(
-                    visible: showActions,
-                    onCopyPath: () => _copyPath(context),
-                  ),
-                ],
+                    JsonTreeTrailingActions(
+                      visible: showActions,
+                      onCopyPath: () => _copyPath(context),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -129,6 +156,13 @@ class JsonValueRow extends StatelessWidget {
       JsonValueType.nullValue => 'null',
       _ => node.displayText,
     };
+  }
+
+  TimestampHint? get _timestampHint {
+    if (node.type != JsonValueType.number || node.value is! num) {
+      return null;
+    }
+    return TimestampDetector.detect(node.value as num);
   }
 
   Color _valueColor(JsonSyntaxColors colors) {

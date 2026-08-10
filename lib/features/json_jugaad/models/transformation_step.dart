@@ -3,7 +3,18 @@ enum TransformationType {
   removedWrapper,
   decodedEscaped,
   urlDecoded,
+  base64Decoded,
+  hexDecoded,
+  htmlEntitiesDecoded,
+  jsonExtracted,
+  jsonpExtracted,
+  trailingCommaRemoved,
+  commentRemoved,
+  compressedDecoded,
   parsedJson,
+  parsedNdjson,
+  parsedQueryString,
+  detectedJwt,
   extractedNestedJson,
 }
 

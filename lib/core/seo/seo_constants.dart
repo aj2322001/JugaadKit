@@ -1,15 +1,15 @@
 abstract final class SeoConstants {
   static const homeTitle =
-      'JugaadKit — JSON Jugaad | Developer Tools for the Messy Stuff';
+      'JugaadKit — Data Jugaad | Developer Tools for the Messy Stuff';
 
   static const homeDescription =
-      'JSON Jugaad is a free online JSON formatter, beautifier and unescape tool. '
-      'Clean, parse and format messy or escaped JSON directly in your browser.';
+      "Paste messy developer data. We'll figure it out. "
+      'Decode, parse and explore JSON, Base64, JWT, and more in your browser.';
 
   static const jsonJugaadTitle =
-      'JSON Jugaad — Free JSON Formatter & Unescape Tool | JugaadKit';
+      'Data Jugaad — Paste Messy Developer Data | JugaadKit';
 
   static const jsonJugaadDescription =
-      "Clean, unescape, parse and beautify messy or escaped JSON online with "
-      "JugaadKit's free JSON Jugaad tool.";
+      "Paste messy developer data. We'll figure it out. "
+      'Decode, parse and explore developer payloads with JugaadKit.';
 }

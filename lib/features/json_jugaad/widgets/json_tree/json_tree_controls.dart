@@ -1,5 +1,37 @@
 import 'package:flutter/material.dart';
 
+abstract final class JsonTreeLayout {
+  static const double trailingActionsWidth = 22;
+  static const double scrollbarGutter = 14;
+}
+
+class SearchMatchHighlight extends StatelessWidget {
+  const SearchMatchHighlight({
+    super.key,
+    required this.isActive,
+    required this.child,
+  });
+
+  final bool isActive;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isActive) {
+      return child;
+    }
+
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: child,
+    );
+  }
+}
+
 class JsonTreeExpandIcon extends StatelessWidget {
   const JsonTreeExpandIcon({
     super.key,
@@ -50,11 +82,6 @@ class JsonTreeIconButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
     );
   }
-}
-
-abstract final class JsonTreeLayout {
-  static const double trailingActionsWidth = 22;
-  static const double scrollbarGutter = 14;
 }
 
 /// Fixed-width trailing slot for the hover copy-path button.

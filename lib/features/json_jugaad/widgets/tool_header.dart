@@ -18,7 +18,7 @@ class ToolHeader extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Paste messy, escaped, or wrapped JSON — we\'ll clean it up.',
+          JsonJugaadConstants.subtitle,
           style: theme.textTheme.bodyMedium,
         ),
       ],

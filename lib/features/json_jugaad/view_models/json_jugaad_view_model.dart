@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_ui_state.dart';
+import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/services/json_jugaad_service.dart';
 
 class JsonJugaadViewModel extends ChangeNotifier {
@@ -39,6 +40,26 @@ class JsonJugaadViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setProcessingMode(ProcessingMode mode) {
+    if (_state.processingMode == mode) {
+      return;
+    }
+
+    _state = _state.copyWith(processingMode: mode);
+    notifyListeners();
+
+    if (_state.input.trim().isEmpty) {
+      return;
+    }
+
+    _debounceTimer?.cancel();
+    _process(_state.input);
+  }
+
+  void tryAs(ProcessingMode mode) {
+    setProcessingMode(mode);
+  }
+
   void processNow() {
     _debounceTimer?.cancel();
     if (_state.input.trim().isEmpty) {
@@ -58,7 +79,10 @@ class JsonJugaadViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = _service.process(input);
+      final result = _service.process(
+        input,
+        mode: _state.processingMode,
+      );
       _state = _state.copyWith(
         status: JsonJugaadStatus.success,
         result: result,
@@ -76,6 +100,8 @@ class JsonJugaadViewModel extends ChangeNotifier {
         error: JsonJugaadError(
           message: 'An unexpected error occurred.',
           detail: error.toString(),
+          processingMode: _state.processingMode,
+          isAutomatic: _state.processingMode == ProcessingMode.auto,
         ),
         clearResult: true,
       );

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:jugaadkit/features/json_jugaad/engine/confidence.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
+import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/models/transformation_step.dart';
 
 class TransformationStatus extends StatelessWidget {
@@ -7,10 +10,20 @@ class TransformationStatus extends StatelessWidget {
     super.key,
     required this.steps,
     this.showExplorerHint = false,
+    this.detectionSummary,
+    this.confidence = Confidence.none,
+    this.showDetectionMeta = false,
+    this.ambiguousError,
+    this.onTryAs,
   });
 
   final List<TransformationStep> steps;
   final bool showExplorerHint;
+  final String? detectionSummary;
+  final Confidence confidence;
+  final bool showDetectionMeta;
+  final JsonJugaadError? ambiguousError;
+  final ValueChanged<ProcessingMode>? onTryAs;
 
   static const String _explorerHint =
       'Click a key or value in the output to copy it.';
@@ -18,7 +31,12 @@ class TransformationStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lines = _buildLines();
-    if (lines.isEmpty) {
+    final showAmbiguous = ambiguousError?.isAmbiguousAutoFailure ?? false;
+
+    if (lines.isEmpty &&
+        !showDetectionMeta &&
+        !showAmbiguous &&
+        detectionSummary == null) {
       return const SizedBox.shrink();
     }
 
@@ -36,13 +54,57 @@ class TransformationStatus extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Transformations applied',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.primary,
+          if (showAmbiguous) ...[
+            Text(
+              ambiguousError!.message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+            if (ambiguousError!.suggestedModes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Try as:',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final mode in ambiguousError!.suggestedModes)
+                    ActionChip(
+                      label: Text(mode.label),
+                      onPressed: onTryAs == null ? null : () => onTryAs!(mode),
+                    ),
+                ],
+              ),
+            ],
+          ] else if (showDetectionMeta && detectionSummary != null) ...[
+            _MetaRow(
+              label: 'Detected',
+              value: detectionSummary!,
+              theme: theme,
+            ),
+            const SizedBox(height: 4),
+            _MetaRow(
+              label: 'Confidence',
+              value: confidence.label,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (lines.isNotEmpty) ...[
+            Text(
+              'Transformations',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           ...lines.asMap().entries.map((entry) {
             final index = entry.key + 1;
             final line = entry.value;
@@ -109,6 +171,42 @@ class TransformationStatus extends StatelessWidget {
     }
 
     return lines;
+  }
+}
+
+class _MetaRow extends StatelessWidget {
+  const _MetaRow({
+    required this.label,
+    required this.value,
+    required this.theme,
+  });
+
+  final String label;
+  final String value;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(
+            '$label:',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
   }
 }
 

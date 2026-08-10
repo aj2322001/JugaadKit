@@ -6,6 +6,7 @@ import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_ui_state.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
 import 'package:jugaadkit/widgets/common/action_button.dart';
 import 'package:jugaadkit/widgets/common/empty_state.dart';
 import 'package:jugaadkit/widgets/common/error_state.dart';
@@ -92,6 +93,7 @@ class _JsonOutputExplorer extends StatefulWidget {
 
 class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
   late final TextEditingController _searchController;
+  late final JsonTreeSearchNavigator _searchNavigator;
   String _searchQuery = '';
   int? _matchCount;
 
@@ -99,11 +101,13 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchNavigator = JsonTreeSearchNavigator();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchNavigator.dispose();
     super.dispose();
   }
 
@@ -168,13 +172,52 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
               ),
               if (_matchCount != null) ...[
                 const SizedBox(width: 8),
-                Text(
-                  _matchCount == 0 ? 'No matches' : '$_matchCount matches',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: _matchCount == 0
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
-                  ),
+                ListenableBuilder(
+                  listenable: _searchNavigator,
+                  builder: (context, _) {
+                    if (_matchCount == 0) {
+                      return Text(
+                        'No matches',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      );
+                    }
+
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_searchNavigator.activeMatchNumber}/${_searchNavigator.matchCount}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Previous match',
+                          onPressed: _searchNavigator.goToPrevious,
+                          icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Next match',
+                          onPressed: _searchNavigator.goToNext,
+                          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
               const SizedBox(width: 8),
@@ -204,6 +247,7 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
                   child: JsonTreeView(
                     rootValue: widget.result.parsedValue,
                     searchController: _searchController,
+                    searchNavigator: _searchNavigator,
                     onSearchChanged: _onSearchChanged,
                   ),
                 ),

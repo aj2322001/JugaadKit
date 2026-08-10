@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jugaadkit/core/theme/app_theme.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/json_tree_view.dart';
 
 void main() {
@@ -140,6 +141,45 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(matchCount, 0);
+    });
+
+    testWidgets('search navigation jumps between matches', (tester) async {
+      final navigator = JsonTreeSearchNavigator();
+      addTearDown(navigator.dispose);
+
+      await tester.pumpWidget(
+        wrap(
+          JsonTreeView(
+            rootValue: {
+              'alpha': 'one',
+              'beta': 'two',
+              'gamma': 'three',
+            },
+            searchController: searchController,
+            searchNavigator: navigator,
+          ),
+          searchController: searchController,
+        ),
+      );
+
+      searchController.text = 'a';
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(navigator.matchCount, greaterThan(1));
+      expect(navigator.activeMatchNumber, 1);
+
+      navigator.goToNext();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(navigator.activeMatchNumber, 2);
+
+      navigator.goToPrevious();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(navigator.activeMatchNumber, 1);
     });
   });
 }

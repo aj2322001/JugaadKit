@@ -22,6 +22,7 @@ class JsonExpandableRow extends StatelessWidget {
     required this.searchQuery,
     required this.searchResult,
     required this.hoveredPath,
+    this.isActiveSearchMatch = false,
     required this.onToggle,
     required this.onHover,
   });
@@ -31,6 +32,7 @@ class JsonExpandableRow extends StatelessWidget {
   final String searchQuery;
   final JsonTreeSearchResult? searchResult;
   final ValueNotifier<String?> hoveredPath;
+  final bool isActiveSearchMatch;
   final JsonTreeExpansionCallback onToggle;
   final JsonTreeHoverCallback onHover;
 
@@ -68,36 +70,48 @@ class JsonExpandableRow extends StatelessWidget {
         return RepaintBoundary(
           child: MouseRegion(
             onEnter: (_) => onHover(node),
-            child: Padding(
-              padding: EdgeInsets.only(left: indent),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () => onToggle(node.path),
-                    borderRadius: BorderRadius.circular(2),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 2,
-                      ),
-                      child: JsonTreeExpandIcon(
-                        isExpanded: isExpanded,
-                        color: colors.structure.withValues(alpha: 0.8),
+            child: SearchMatchHighlight(
+              isActive: isActiveSearchMatch,
+              child: Padding(
+                padding: EdgeInsets.only(left: indent),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => onToggle(node.path),
+                      borderRadius: BorderRadius.circular(2),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                          vertical: 2,
+                        ),
+                        child: JsonTreeExpandIcon(
+                          isExpanded: isExpanded,
+                          color: colors.structure.withValues(alpha: 0.8),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (node.key != null)
-                            JsonTreeCopyTarget(
-                              text: node.key!,
-                              copyType: CopyFeedbackType.key,
-                              child: HighlightedText(
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (node.key != null)
+                              JsonTreeCopyTarget(
+                                text: node.key!,
+                                copyType: CopyFeedbackType.key,
+                                child: HighlightedText(
+                                  text: node.headerLabel,
+                                  query: match?.keyMatches == true
+                                      ? searchQuery
+                                      : null,
+                                  highlightColor: colors.searchHighlight,
+                                  style: keyStyle,
+                                ),
+                              )
+                            else
+                              HighlightedText(
                                 text: node.headerLabel,
                                 query: match?.keyMatches == true
                                     ? searchQuery
@@ -105,30 +119,21 @@ class JsonExpandableRow extends StatelessWidget {
                                 highlightColor: colors.searchHighlight,
                                 style: keyStyle,
                               ),
-                            )
-                          else
-                            HighlightedText(
-                              text: node.headerLabel,
-                              query: match?.keyMatches == true
-                                  ? searchQuery
-                                  : null,
-                              highlightColor: colors.searchHighlight,
-                              style: keyStyle,
+                            JsonTreeCopyTarget(
+                              text: JsonCopyUtil.valueForClipboard(node),
+                              copyType: CopyFeedbackType.value,
+                              child: Text(suffix, style: suffixStyle),
                             ),
-                          JsonTreeCopyTarget(
-                            text: JsonCopyUtil.valueForClipboard(node),
-                            copyType: CopyFeedbackType.value,
-                            child: Text(suffix, style: suffixStyle),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  JsonTreeTrailingActions(
-                    visible: showActions,
-                    onCopyPath: () => _copyPath(context),
-                  ),
-                ],
+                    JsonTreeTrailingActions(
+                      visible: showActions,
+                      onCopyPath: () => _copyPath(context),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
