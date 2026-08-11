@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'core/constants/app_constants.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'features/json_jugaad/view_models/json_jugaad_view_model.dart';
 
 class JugaadKitApp extends StatefulWidget {
   const JugaadKitApp({super.key});
@@ -13,24 +12,13 @@ class JugaadKitApp extends StatefulWidget {
 }
 
 class _JugaadKitAppState extends State<JugaadKitApp> {
-  late final JsonJugaadViewModel _jsonJugaadViewModel;
   late final AppRouter _appRouter;
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
-    _jsonJugaadViewModel = JsonJugaadViewModel();
-    _appRouter = AppRouter(
-      jsonJugaadViewModel: _jsonJugaadViewModel,
-      onToggleTheme: _toggleTheme,
-    );
-  }
-
-  @override
-  void dispose() {
-    _jsonJugaadViewModel.dispose();
-    super.dispose();
+    _appRouter = AppRouter(onToggleTheme: _toggleTheme);
   }
 
   void _toggleTheme() {

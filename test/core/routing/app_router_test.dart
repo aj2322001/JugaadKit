@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:jugaadkit/core/routing/app_router.dart';
 import 'package:jugaadkit/core/routing/app_routes.dart';
 import 'package:jugaadkit/core/theme/app_theme.dart';
-import 'package:jugaadkit/features/json_jugaad/view_models/json_jugaad_view_model.dart';
 
 void main() {
   group('AppRoutes', () {
@@ -18,19 +17,10 @@ void main() {
   });
 
   group('AppRouter', () {
-    late JsonJugaadViewModel viewModel;
     late AppRouter appRouter;
 
     setUp(() {
-      viewModel = JsonJugaadViewModel();
-      appRouter = AppRouter(
-        jsonJugaadViewModel: viewModel,
-        onToggleTheme: () {},
-      );
-    });
-
-    tearDown(() {
-      viewModel.dispose();
+      appRouter = AppRouter(onToggleTheme: () {});
     });
 
     Future<void> pumpRouter(

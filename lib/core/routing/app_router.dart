@@ -2,18 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/views/home_view.dart';
-import '../../features/json_jugaad/view_models/json_jugaad_view_model.dart';
-import '../../features/json_jugaad/views/json_jugaad_view.dart';
 import 'app_routes.dart';
+import 'deferred_data_jugaad_page.dart';
 
 class AppRouter {
-  AppRouter({
-    required JsonJugaadViewModel jsonJugaadViewModel,
-    required VoidCallback onToggleTheme,
-  })  : _jsonJugaadViewModel = jsonJugaadViewModel,
-        _onToggleTheme = onToggleTheme;
+  AppRouter({required VoidCallback onToggleTheme})
+      : _onToggleTheme = onToggleTheme;
 
-  final JsonJugaadViewModel _jsonJugaadViewModel;
   final VoidCallback _onToggleTheme;
 
   late final GoRouter router = GoRouter(
@@ -34,10 +29,7 @@ class AppRouter {
         path: AppRoutes.dataJugaad,
         pageBuilder: (context, state) => _noTransitionPage(
           state: state,
-          child: JsonJugaadView(
-            viewModel: _jsonJugaadViewModel,
-            onToggleTheme: _onToggleTheme,
-          ),
+          child: DeferredDataJugaadPage(onToggleTheme: _onToggleTheme),
         ),
       ),
       GoRoute(

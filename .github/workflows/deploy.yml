@@ -32,7 +32,10 @@ jobs:
         run: flutter pub get
 
       - name: Build Flutter Web
-        run: flutter build web --release --base-href ${{ env.FLUTTER_WEB_BASE_HREF }}
+        run: flutter build web --release --wasm --no-wasm-dry-run --pwa-strategy=none --web-resources-cdn --base-href ${{ env.FLUTTER_WEB_BASE_HREF }}
+
+      - name: Drop bundled CanvasKit (served from CDN)
+        run: rm -rf build/web/canvaskit
 
       - name: Ensure static SEO files are deployed
         run: |

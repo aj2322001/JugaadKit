@@ -64,7 +64,12 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                       maxWidth: AppConstants.maxContentWidth,
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(
+                        MediaQuery.sizeOf(context).width >=
+                                AppConstants.desktopBreakpoint
+                            ? 24
+                            : 16,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -143,12 +148,10 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                                   );
                                 }
 
-                                return Column(
-                                  children: [
-                                    Expanded(child: inputPanel),
-                                    const SizedBox(height: 16),
-                                    Expanded(child: outputPanel),
-                                  ],
+                                return _MobileStackedPanels(
+                                  maxHeight: constraints.maxHeight,
+                                  inputPanel: inputPanel,
+                                  outputPanel: outputPanel,
                                 );
                               },
                             ),
@@ -163,6 +166,52 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MobileStackedPanels extends StatelessWidget {
+  const _MobileStackedPanels({
+    required this.maxHeight,
+    required this.inputPanel,
+    required this.outputPanel,
+  });
+
+  final double maxHeight;
+  final Widget inputPanel;
+  final Widget outputPanel;
+
+  static const double _gap = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    const minPanelHeight = AppConstants.panelMinHeight;
+    final stackedMinHeight = (minPanelHeight * 2) + _gap;
+    final needsScroll = stackedMinHeight > maxHeight;
+    final panelHeight = needsScroll
+        ? minPanelHeight
+        : (maxHeight - _gap) / 2;
+
+    final panels = Column(
+      children: [
+        SizedBox(
+          height: panelHeight,
+          child: inputPanel,
+        ),
+        const SizedBox(height: _gap),
+        SizedBox(
+          height: panelHeight,
+          child: outputPanel,
+        ),
+      ],
+    );
+
+    if (!needsScroll) {
+      return panels;
+    }
+
+    return SingleChildScrollView(
+      child: panels,
     );
   }
 }
