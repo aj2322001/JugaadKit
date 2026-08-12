@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 abstract final class JsonTreeLayout {
   static const double trailingActionsWidth = 22;
   static const double scrollbarGutter = 14;
+  static const double expandIconSize = 16;
+  static const double expandControlWidth = 20;
+  static const double expandLeadingWidth = expandControlWidth + 4;
 }
 
 class SearchMatchHighlight extends StatelessWidget {
@@ -45,13 +48,15 @@ class JsonTreeExpandIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 12,
-      child: Text(
-        isExpanded ? '▾' : '▸',
-        style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 11,
-          height: 1.1,
+      width: JsonTreeLayout.expandIconSize,
+      height: JsonTreeLayout.expandIconSize,
+      child: AnimatedRotation(
+        turns: isExpanded ? 0.25 : 0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: Icon(
+          Icons.chevron_right_rounded,
+          size: JsonTreeLayout.expandIconSize,
           color: color,
         ),
       ),

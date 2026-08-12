@@ -29,7 +29,7 @@ class JsonBracketRow extends StatelessWidget {
           padding: EdgeInsets.only(left: indent),
           child: Row(
             children: [
-              const SizedBox(width: 17),
+              SizedBox(width: JsonTreeLayout.expandLeadingWidth),
               Text(
                 node.closingBracket,
                 style: TextStyle(

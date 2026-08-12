@@ -262,6 +262,7 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
                     searchController: _searchController,
                     searchNavigator: _searchNavigator,
                     onSearchChanged: _onSearchChanged,
+                    reportsSearchMatches: true,
                   ),
                 ),
               ),

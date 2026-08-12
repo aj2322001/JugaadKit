@@ -1,36 +1,47 @@
 import 'package:flutter/foundation.dart';
 
-class JsonTreeSearchNavigator extends ChangeNotifier {
+/// Shared search-navigation state for a single JSON tree output surface.
+class JsonTreeSearchSession extends ChangeNotifier {
   int _matchCount = 0;
   int _activeIndex = 0;
-  VoidCallback? _onPrevious;
-  VoidCallback? _onNext;
 
   bool get canNavigate => _matchCount > 0;
   int get matchCount => _matchCount;
+  int get activeIndex => _activeIndex;
   int get activeMatchNumber => _matchCount == 0 ? 0 : _activeIndex + 1;
 
-  void goToPrevious() => _onPrevious?.call();
-  void goToNext() => _onNext?.call();
-
-  void update({
-    required int matchCount,
-    required int activeIndex,
-    required VoidCallback onPrevious,
-    required VoidCallback onNext,
-  }) {
+  void setMatches(int matchCount, {bool resetIndex = true}) {
     _matchCount = matchCount;
-    _activeIndex = activeIndex;
-    _onPrevious = onPrevious;
-    _onNext = onNext;
+    if (resetIndex || _activeIndex >= matchCount) {
+      _activeIndex = 0;
+    } else {
+      _activeIndex = _activeIndex.clamp(0, matchCount > 0 ? matchCount - 1 : 0);
+    }
+    notifyListeners();
+  }
+
+  void goToPrevious() {
+    if (_matchCount <= 0) {
+      return;
+    }
+    _activeIndex = (_activeIndex - 1 + _matchCount) % _matchCount;
+    notifyListeners();
+  }
+
+  void goToNext() {
+    if (_matchCount <= 0) {
+      return;
+    }
+    _activeIndex = (_activeIndex + 1) % _matchCount;
     notifyListeners();
   }
 
   void clear() {
     _matchCount = 0;
     _activeIndex = 0;
-    _onPrevious = null;
-    _onNext = null;
     notifyListeners();
   }
 }
+
+/// Backwards-compatible alias used by older call sites.
+typedef JsonTreeSearchNavigator = JsonTreeSearchSession;

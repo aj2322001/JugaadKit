@@ -46,6 +46,7 @@ class JsonExpandableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colors = JsonSyntaxColors.of(context);
     final match = searchResult?.matchFor(node.path);
     final indent = node.depth * 16.0;
@@ -78,19 +79,21 @@ class JsonExpandableRow extends StatelessWidget {
                   children: [
                     InkWell(
                       onTap: () => onToggle(node.path),
-                      borderRadius: BorderRadius.circular(2),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 2,
-                          vertical: 2,
-                        ),
-                        child: JsonTreeExpandIcon(
-                          isExpanded: isExpanded,
-                          color: colors.structure.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(4),
+                      child: SizedBox(
+                        width: JsonTreeLayout.expandControlWidth,
+                        height: JsonTreeLayout.expandControlWidth,
+                        child: Center(
+                          child: JsonTreeExpandIcon(
+                            isExpanded: isExpanded,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.8),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: JsonTreeLayout.expandLeadingWidth -
+                        JsonTreeLayout.expandControlWidth),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),

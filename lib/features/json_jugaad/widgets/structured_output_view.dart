@@ -248,6 +248,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                   jsonBodyShrinkWrap: true,
                   detachJsonPathFooter: hasJsonBody,
                   hoveredPathNotifier: _hoveredPathNotifier,
+                  reportsSearchMatches: hasJsonBody,
                 ),
               ),
             ),
@@ -290,6 +291,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
         searchController: _searchController,
         searchNavigator: _searchNavigator,
         onSearchChanged: _onSearchChanged,
+        reportsSearchMatches: structured.jsonBodyValue != null,
       ),
     );
   }
@@ -330,8 +332,7 @@ class _StructuredJsonBodyLayout extends StatelessWidget {
                   child: _StructuredSectionsList(
                     sections: preamble,
                     searchController: searchController,
-                    searchNavigator: searchNavigator,
-                    onSearchChanged: onSearchChanged,
+                    jsonBodyShrinkWrap: true,
                   ),
                 ),
               ),
@@ -351,6 +352,7 @@ class _StructuredJsonBodyLayout extends StatelessWidget {
                         searchController: searchController,
                         searchNavigator: searchNavigator,
                         onSearchChanged: onSearchChanged,
+                        reportsSearchMatches: true,
                       ),
                     ),
                   ],
@@ -373,6 +375,7 @@ class _StructuredSectionsList extends StatelessWidget {
     this.jsonBodyShrinkWrap = false,
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
+    this.reportsSearchMatches = false,
   });
 
   final List<JugaadOutputSection> sections;
@@ -382,6 +385,7 @@ class _StructuredSectionsList extends StatelessWidget {
   final bool jsonBodyShrinkWrap;
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool reportsSearchMatches;
 
   @override
   Widget build(BuildContext context) {
@@ -398,6 +402,7 @@ class _StructuredSectionsList extends StatelessWidget {
             jsonBodyShrinkWrap: jsonBodyShrinkWrap,
             detachJsonPathFooter: detachJsonPathFooter,
             hoveredPathNotifier: hoveredPathNotifier,
+            reportsSearchMatches: reportsSearchMatches,
           ),
         ],
       ],
@@ -414,6 +419,7 @@ class _StructuredSectionView extends StatelessWidget {
     this.jsonBodyShrinkWrap = false,
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
+    this.reportsSearchMatches = false,
   });
 
   final JugaadOutputSection section;
@@ -423,6 +429,7 @@ class _StructuredSectionView extends StatelessWidget {
   final bool jsonBodyShrinkWrap;
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool reportsSearchMatches;
 
   @override
   Widget build(BuildContext context) {
@@ -450,6 +457,7 @@ class _StructuredSectionView extends StatelessWidget {
               jsonShrinkWrap: jsonBodyShrinkWrap,
               detachPathFooter: detachJsonPathFooter,
               hoveredPathNotifier: hoveredPathNotifier,
+              reportsSearchMatches: reportsSearchMatches,
             ),
           JugaadSectionType.xmlDocument => _MonospaceText(text: section.text!),
         },
@@ -657,6 +665,7 @@ class _BodyContentView extends StatelessWidget {
     this.jsonShrinkWrap = false,
     this.detachPathFooter = false,
     this.hoveredPathNotifier,
+    this.reportsSearchMatches = false,
   });
 
   final JugaadBodyContent body;
@@ -666,6 +675,7 @@ class _BodyContentView extends StatelessWidget {
   final bool jsonShrinkWrap;
   final bool detachPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool reportsSearchMatches;
 
   @override
   Widget build(BuildContext context) {
@@ -674,8 +684,9 @@ class _BodyContentView extends StatelessWidget {
         return JsonTreeView(
           rootValue: body.jsonValue,
           searchController: searchController!,
-          searchNavigator: searchNavigator,
-          onSearchChanged: onSearchChanged,
+          searchNavigator: reportsSearchMatches ? searchNavigator : null,
+          onSearchChanged: reportsSearchMatches ? onSearchChanged : null,
+          reportsSearchMatches: reportsSearchMatches,
           shrinkWrap: true,
           showPathFooter: !detachPathFooter,
           detachPathFooter: detachPathFooter,
@@ -690,6 +701,7 @@ class _BodyContentView extends StatelessWidget {
           searchController: searchController!,
           searchNavigator: searchNavigator,
           onSearchChanged: onSearchChanged,
+          reportsSearchMatches: reportsSearchMatches,
         ),
       );
     }

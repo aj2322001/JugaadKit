@@ -25,22 +25,28 @@ class JsonTreeView extends StatefulWidget {
     super.key,
     required this.rootValue,
     required this.searchController,
+    this.searchSession,
     this.searchNavigator,
     this.onSearchChanged,
     this.shrinkWrap = false,
     this.showPathFooter = true,
     this.hoveredPathNotifier,
     this.detachPathFooter = false,
+    this.reportsSearchMatches = true,
   });
 
   final Object? rootValue;
   final TextEditingController searchController;
-  final JsonTreeSearchNavigator? searchNavigator;
+  final JsonTreeSearchSession? searchSession;
+  final JsonTreeSearchSession? searchNavigator;
   final JsonTreeSearchListener? onSearchChanged;
   final bool shrinkWrap;
   final bool showPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool detachPathFooter;
+  final bool reportsSearchMatches;
+
+  JsonTreeSearchSession? get _session => searchSession ?? searchNavigator;
 
   @override
   State<JsonTreeView> createState() => _JsonTreeViewState();
@@ -49,9 +55,12 @@ class JsonTreeView extends StatefulWidget {
 class _JsonTreeViewState extends State<JsonTreeView> {
   static const Duration _hoverClearDelay = Duration(milliseconds: 150);
   static const Duration _searchDebounce = Duration(milliseconds: 150);
+  static const double _estimatedRowHeight = 28;
+  static const int _maxScrollAttempts = 64;
 
   late JsonTreeNode _rootNode;
   late List<VisibleTreeRow> _visibleRows;
+  final ScrollController _scrollController = ScrollController();
   final Set<String> _collapsedPaths = {};
   Set<String>? _savedCollapsedPaths;
   final ValueNotifier<String?> _internalHoveredPath = ValueNotifier<String?>(null);
@@ -65,6 +74,8 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   GlobalKey? _scrollTargetKey;
   Timer? _hoverClearTimer;
   Timer? _searchDebounceTimer;
+  JsonTreeSearchSession? _boundSession;
+  int _scrollToActiveMatchToken = 0;
 
   @override
   void initState() {
@@ -74,6 +85,10 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     _searchQuery = widget.searchController.text;
     _rebuildVisibleRows();
     _runSearch(_searchQuery);
+    if (widget.reportsSearchMatches) {
+      _bindSearchSession(widget._session);
+      _syncActiveIndexFromSession();
+    }
   }
 
   @override
@@ -82,6 +97,10 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     if (oldWidget.searchController != widget.searchController) {
       oldWidget.searchController.removeListener(_onSearchTextChanged);
       widget.searchController.addListener(_onSearchTextChanged);
+    }
+    if (oldWidget._session != widget._session) {
+      _unbindSearchSession();
+      _bindSearchSession(widget._session);
     }
     if (oldWidget.rootValue != widget.rootValue) {
       _rootNode = JsonTreeBuilder.build(widget.rootValue);
@@ -94,6 +113,11 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       _hoverClearTimer?.cancel();
       _rebuildVisibleRows();
       _runSearch(_searchQuery);
+      _publishSearchState(resetActiveIndex: true);
+    } else if (oldWidget.reportsSearchMatches != widget.reportsSearchMatches) {
+      _publishSearchState(resetActiveIndex: false);
+    } else {
+      _syncActiveIndexFromSession();
     }
   }
 
@@ -102,10 +126,67 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     _hoverClearTimer?.cancel();
     _searchDebounceTimer?.cancel();
     widget.searchController.removeListener(_onSearchTextChanged);
+    _unbindSearchSession();
+    _scrollController.dispose();
     if (widget.hoveredPathNotifier == null) {
       _internalHoveredPath.dispose();
     }
     super.dispose();
+  }
+
+  void _bindSearchSession(JsonTreeSearchSession? session) {
+    _boundSession = session;
+    if (widget.reportsSearchMatches) {
+      session?.addListener(_onSearchSessionChanged);
+    }
+  }
+
+  void _unbindSearchSession() {
+    if (widget.reportsSearchMatches) {
+      _boundSession?.removeListener(_onSearchSessionChanged);
+    }
+    _boundSession = null;
+  }
+
+  void _onSearchSessionChanged() {
+    if (!widget.reportsSearchMatches) {
+      return;
+    }
+    _syncActiveIndexFromSession();
+  }
+
+  void _syncActiveIndexFromSession() {
+    if (!widget.reportsSearchMatches) {
+      return;
+    }
+
+    final session = widget._session;
+    if (session == null) {
+      return;
+    }
+
+    final matchCount = _searchResult?.matchCount ?? 0;
+    if (matchCount == 0) {
+      if (_activeMatchIndex != null) {
+        setState(() {
+          _activeMatchIndex = null;
+          _scrollTargetKey = null;
+        });
+      }
+      return;
+    }
+
+    final targetIndex = session.activeIndex.clamp(0, matchCount - 1);
+    if (_activeMatchIndex != targetIndex) {
+      setState(() {
+        _activeMatchIndex = targetIndex;
+        _scrollTargetKey = GlobalKey();
+        _rebuildVisibleRows();
+      });
+    } else {
+      _scrollTargetKey ??= GlobalKey();
+    }
+    _scheduleScrollToActiveMatch();
   }
 
   void _onSearchTextChanged() {
@@ -138,36 +219,39 @@ class _JsonTreeViewState extends State<JsonTreeView> {
         _activeMatchIndex = null;
         _scrollTargetKey = null;
       } else {
-        _activeMatchIndex = 0;
+        _activeMatchIndex = widget._session?.activeIndex ?? 0;
+        if (_activeMatchIndex! >= matchCount) {
+          _activeMatchIndex = 0;
+        }
         _scrollTargetKey = GlobalKey();
       }
       _rebuildVisibleRows();
     });
-    _notifySearchChanged();
+    _publishSearchState(resetActiveIndex: true);
     if (_activeMatchIndex != null) {
-      _scrollToActiveMatch();
+      _scheduleScrollToActiveMatch();
     }
   }
 
-  void _jumpToMatch(int delta) {
-    final matches = _searchResult?.matches;
-    if (matches == null || matches.isEmpty) {
+  void _publishSearchState({required bool resetActiveIndex}) {
+    widget.onSearchChanged?.call(_searchQuery, _searchResult);
+
+    if (!widget.reportsSearchMatches) {
       return;
     }
 
-    final current = _activeMatchIndex ?? 0;
-    var next = (current + delta) % matches.length;
-    if (next < 0) {
-      next = matches.length - 1;
+    final session = widget._session;
+    if (session == null) {
+      return;
     }
 
-    setState(() {
-      _activeMatchIndex = next;
-      _scrollTargetKey = GlobalKey();
-      _rebuildVisibleRows();
-    });
-    _notifySearchChanged();
-    _scrollToActiveMatch();
+    final matchCount = _searchResult?.matchCount ?? 0;
+    if (matchCount == 0 || _searchQuery.trim().isEmpty) {
+      session.clear();
+      return;
+    }
+
+    session.setMatches(matchCount, resetIndex: resetActiveIndex);
   }
 
   String? get _activeMatchPath {
@@ -179,43 +263,142 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     return matches[index].path;
   }
 
-  void _scrollToActiveMatch() {
+  int? _rowIndexForActiveMatch() {
+    final path = _activeMatchPath;
+    if (path == null) {
+      return null;
+    }
+
+    for (var i = 0; i < _visibleRows.length; i++) {
+      final row = _visibleRows[i];
+      if (!row.isCloseBracket && row.node.path == path) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  ScrollPosition? _ownedScrollPosition() {
+    if (!widget.shrinkWrap && _scrollController.hasClients) {
+      return _scrollController.position;
+    }
+    return null;
+  }
+
+  ScrollPosition? _scrollPositionForActiveMatch() {
+    final owned = _ownedScrollPosition();
+    if (owned != null) {
+      return owned;
+    }
+
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable != null && scrollable.position.hasContentDimensions) {
+      return scrollable.position;
+    }
+
+    return null;
+  }
+
+  void _scheduleScrollToActiveMatch() {
+    final token = ++_scrollToActiveMatchToken;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
+      if (!mounted || token != _scrollToActiveMatchToken) {
         return;
       }
-      final targetContext = _scrollTargetKey?.currentContext;
-      if (targetContext == null) {
-        return;
-      }
-      Scrollable.ensureVisible(
-        targetContext,
-        alignment: 0.2,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-      );
+      unawaited(_scrollToActiveMatch(token));
     });
   }
 
-  void _notifySearchChanged() {
-    widget.onSearchChanged?.call(_searchQuery, _searchResult);
-    final navigator = widget.searchNavigator;
-    if (navigator == null) {
+  int _approxRowAtOffset(double pixels) {
+    return (pixels / _estimatedRowHeight).floor();
+  }
+
+  void _jumpScrollPosition(ScrollPosition position, int rowIndex, int attempt) {
+    final maxExtent = position.maxScrollExtent;
+    final viewport = position.viewportDimension;
+    final approxRow = _approxRowAtOffset(position.pixels);
+    final estimatedOffset =
+        (rowIndex * _estimatedRowHeight).clamp(0.0, maxExtent);
+    final rowDelta = rowIndex - approxRow;
+
+    if (attempt == 0) {
+      if (_visibleRows.length > 1) {
+        final progress = rowIndex / (_visibleRows.length - 1);
+        final proportional = (progress * maxExtent).clamp(0.0, maxExtent);
+        position.jumpTo(
+          estimatedOffset > proportional ? estimatedOffset : proportional,
+        );
+      } else {
+        position.jumpTo(estimatedOffset);
+      }
       return;
     }
 
-    final matchCount = _searchResult?.matchCount ?? 0;
-    if (matchCount == 0 || _searchQuery.trim().isEmpty) {
-      navigator.clear();
+    if (rowDelta.abs() >= 4) {
+      final delta = rowDelta * _estimatedRowHeight;
+      position.jumpTo((position.pixels + delta).clamp(0.0, maxExtent));
       return;
     }
 
-    navigator.update(
-      matchCount: matchCount,
-      activeIndex: _activeMatchIndex ?? 0,
-      onPrevious: () => _jumpToMatch(-1),
-      onNext: () => _jumpToMatch(1),
-    );
+    if (approxRow < rowIndex) {
+      final viewportJump =
+          (position.pixels + viewport * 0.85).clamp(0.0, maxExtent);
+      position.jumpTo(
+        estimatedOffset > position.pixels + 1 ? estimatedOffset : viewportJump,
+      );
+      return;
+    }
+
+    if (approxRow > rowIndex) {
+      final viewportJump =
+          (position.pixels - viewport * 0.85).clamp(0.0, maxExtent);
+      position.jumpTo(
+        estimatedOffset < position.pixels - 1 ? estimatedOffset : viewportJump,
+      );
+      return;
+    }
+
+    final delta = rowIndex >= approxRow
+        ? _estimatedRowHeight * 3
+        : -_estimatedRowHeight * 3;
+    position.jumpTo((position.pixels + delta).clamp(0.0, maxExtent));
+  }
+
+  Future<void> _scrollToActiveMatch(int token) async {
+    final rowIndex = _rowIndexForActiveMatch();
+    if (rowIndex == null) {
+      return;
+    }
+
+    ScrollPosition? position = _scrollPositionForActiveMatch();
+
+    for (var attempt = 0; attempt < _maxScrollAttempts; attempt++) {
+      if (!mounted || token != _scrollToActiveMatchToken) {
+        return;
+      }
+
+      final targetContext = _scrollTargetKey?.currentContext;
+      if (targetContext != null && targetContext.mounted) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          alignment: 0.2,
+          duration: Duration(milliseconds: attempt == 0 ? 200 : 120),
+          curve: Curves.easeInOut,
+        );
+        return;
+      }
+
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || token != _scrollToActiveMatchToken) {
+        return;
+      }
+
+      position = _ownedScrollPosition() ?? position;
+      if (position == null) {
+        continue;
+      }
+      _jumpScrollPosition(position, rowIndex, attempt);
+    }
   }
 
   void _runSearch(String query) {
@@ -264,10 +447,12 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   @override
   Widget build(BuildContext context) {
     final treeList = ListView.builder(
+      controller: widget.shrinkWrap ? null : _scrollController,
       shrinkWrap: widget.shrinkWrap,
       physics: widget.shrinkWrap
           ? const NeverScrollableScrollPhysics()
           : null,
+      cacheExtent: _activeMatchPath != null ? 2400 : 480,
       padding: const EdgeInsets.only(
         right: JsonTreeLayout.trailingActionsWidth +
             JsonTreeLayout.scrollbarGutter,
@@ -329,6 +514,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
           Expanded(
             child: Scrollbar(
               thumbVisibility: true,
+              controller: _scrollController,
               child: treeList,
             ),
           ),

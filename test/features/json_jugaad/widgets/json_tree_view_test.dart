@@ -65,7 +65,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('▾').first);
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
       await tester.pump();
 
       expect(find.text('name'), findsNothing);
@@ -87,14 +87,16 @@ void main() {
 
       expect(find.text('id'), findsOneWidget);
 
-      await tester.tap(find.text('▾'));
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(find.text('id'), findsNothing);
-      expect(find.text('▸'), findsOneWidget);
+      expect(find.textContaining('{1}'), findsOneWidget);
 
-      await tester.tap(find.text('▸'));
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
       expect(find.text('id'), findsOneWidget);
     });
@@ -180,6 +182,95 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
 
       expect(navigator.activeMatchNumber, 1);
+    });
+
+    testWidgets('navigation works after scrolling and updating search',
+        (tester) async {
+      final navigator = JsonTreeSearchNavigator();
+      addTearDown(navigator.dispose);
+
+      final rootValue = <String, Object>{
+        for (var i = 0; i < 40; i++) 'field$i': 'value$i',
+        'alpha': 'match-a',
+        'beta': 'match-b',
+        'gamma': 'match-c',
+      };
+
+      await tester.pumpWidget(
+        wrap(
+          JsonTreeView(
+            rootValue: rootValue,
+            searchController: searchController,
+            searchNavigator: navigator,
+          ),
+          searchController: searchController,
+        ),
+      );
+
+      searchController.text = 'match';
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(navigator.matchCount, 3);
+      expect(navigator.activeMatchNumber, 1);
+
+      await tester.drag(find.byType(Scrollable), const Offset(0, -400));
+      await tester.pump();
+
+      searchController.text = 'match-';
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(navigator.activeMatchNumber, 1);
+
+      navigator.goToNext();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(navigator.activeMatchNumber, 2);
+
+      navigator.goToNext();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(navigator.activeMatchNumber, 3);
+    });
+
+    testWidgets('navigation scrolls to off-screen matches', (tester) async {
+      final navigator = JsonTreeSearchNavigator();
+      addTearDown(navigator.dispose);
+
+      final rootValue = <String, Object>{
+        for (var i = 0; i < 80; i++) 'field_$i': 'value_$i',
+        'needle': 'find-me',
+      };
+
+      await tester.pumpWidget(
+        wrap(
+          JsonTreeView(
+            rootValue: rootValue,
+            searchController: searchController,
+            searchNavigator: navigator,
+          ),
+          searchController: searchController,
+        ),
+      );
+
+      searchController.text = 'find-me';
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(navigator.matchCount, 1);
+      expect(find.textContaining('find-me'), findsOneWidget);
+
+      navigator.goToNext();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(navigator.activeMatchNumber, 1);
+      expect(find.textContaining('find-me'), findsOneWidget);
     });
   });
 }
