@@ -163,6 +163,30 @@ void main() {
         throwsA(isA<JsonJugaadError>()),
       );
     });
+
+    test('does not treat pretty-printed JSON as NDJSON', () {
+      const input = '''
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}''';
+
+      final result = engine.process(input);
+      expect(result.detectedFormat, DetectedFormat.json);
+      expect((result.parsedValue as Map)['hosting'], isA<Map>());
+    });
   });
 
   group('Loose JSON', () {

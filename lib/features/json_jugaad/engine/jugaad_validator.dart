@@ -123,7 +123,12 @@ abstract final class JugaadValidator {
   }
 
   static bool looksLikeNdjsonAttempt(String input) {
-    final lines = input
+    final trimmed = input.trim();
+    if (tryParseJson(trimmed) != null) {
+      return false;
+    }
+
+    final lines = trimmed
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
@@ -146,7 +151,12 @@ abstract final class JugaadValidator {
   }
 
   static bool looksLikeNdjson(String input) {
-    final lines = input
+    final trimmed = input.trim();
+    if (tryParseJson(trimmed) != null) {
+      return false;
+    }
+
+    final lines = trimmed
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
