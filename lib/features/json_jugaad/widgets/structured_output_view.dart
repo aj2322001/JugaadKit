@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
-import 'package:jugaadkit/features/json_jugaad/engine/detected_format.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_body_content.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
@@ -227,17 +226,16 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
   }
 
   Widget _buildStructuredContent(JugaadStructuredOutput structured) {
-    final isCurlOutput = widget.result.detectedFormat == DetectedFormat.curl;
+    final hasJsonBody = structured.jsonBodyValue != null;
 
-    if (isCurlOutput) {
-      final hasJsonBody = structured.jsonBodyValue != null;
-
-      return MouseRegion(
-        onExit: (_) => _schedulePathClear(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
+    return MouseRegion(
+      onExit: (_) => _schedulePathClear(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Scrollbar(
+              thumbVisibility: true,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(12),
                 child: _StructuredSectionsList(
@@ -245,123 +243,21 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                   searchController: _searchController,
                   searchNavigator: _searchNavigator,
                   onSearchChanged: _onSearchChanged,
-                  jsonBodyShrinkWrap: true,
                   detachJsonPathFooter: hasJsonBody,
                   hoveredPathNotifier: _hoveredPathNotifier,
                   reportsSearchMatches: hasJsonBody,
                 ),
               ),
             ),
-            if (hasJsonBody)
-              JsonTreePathFooter(
-                hoveredPath: _hoveredPathNotifier,
-                onHover: _cancelPathClear,
-                onCopyPath: _copyPath,
-              ),
-          ],
-        ),
-      );
-    }
-
-    JugaadOutputSection? jsonBodySection;
-    final preamble = <JugaadOutputSection>[];
-
-    for (final section in structured.sections) {
-      if (section.type == JugaadSectionType.body && section.body?.isJson == true) {
-        jsonBodySection = section;
-      } else {
-        preamble.add(section);
-      }
-    }
-
-    if (jsonBodySection != null) {
-      return _StructuredJsonBodyLayout(
-        preamble: preamble,
-        bodySection: jsonBodySection,
-        searchController: _searchController,
-        searchNavigator: _searchNavigator,
-        onSearchChanged: _onSearchChanged,
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: _StructuredSectionsList(
-        sections: structured.sections,
-        searchController: _searchController,
-        searchNavigator: _searchNavigator,
-        onSearchChanged: _onSearchChanged,
-        reportsSearchMatches: structured.jsonBodyValue != null,
-      ),
-    );
-  }
-}
-
-class _StructuredJsonBodyLayout extends StatelessWidget {
-  const _StructuredJsonBodyLayout({
-    required this.preamble,
-    required this.bodySection,
-    required this.searchController,
-    this.searchNavigator,
-    this.onSearchChanged,
-  });
-
-  final List<JugaadOutputSection> preamble;
-  final JugaadOutputSection bodySection;
-  final TextEditingController searchController;
-  final JsonTreeSearchNavigator? searchNavigator;
-  final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxPreambleHeight =
-            (constraints.maxHeight * 0.35).clamp(80.0, 280.0);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (preamble.isNotEmpty) ...[
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxPreambleHeight),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: _StructuredSectionsList(
-                    sections: preamble,
-                    searchController: searchController,
-                    jsonBodyShrinkWrap: true,
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: theme.dividerColor),
-            ],
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SectionTitle(label: bodySection.title),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: JsonTreeView(
-                        rootValue: bodySection.body!.jsonValue,
-                        searchController: searchController,
-                        searchNavigator: searchNavigator,
-                        onSearchChanged: onSearchChanged,
-                        reportsSearchMatches: true,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          ),
+          if (hasJsonBody)
+            JsonTreePathFooter(
+              hoveredPath: _hoveredPathNotifier,
+              onHover: _cancelPathClear,
+              onCopyPath: _copyPath,
             ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -372,7 +268,6 @@ class _StructuredSectionsList extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
-    this.jsonBodyShrinkWrap = false,
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
@@ -382,7 +277,6 @@ class _StructuredSectionsList extends StatelessWidget {
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
-  final bool jsonBodyShrinkWrap;
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
@@ -399,7 +293,6 @@ class _StructuredSectionsList extends StatelessWidget {
             searchController: searchController,
             searchNavigator: searchNavigator,
             onSearchChanged: onSearchChanged,
-            jsonBodyShrinkWrap: jsonBodyShrinkWrap,
             detachJsonPathFooter: detachJsonPathFooter,
             hoveredPathNotifier: hoveredPathNotifier,
             reportsSearchMatches: reportsSearchMatches,
@@ -416,7 +309,6 @@ class _StructuredSectionView extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
-    this.jsonBodyShrinkWrap = false,
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
@@ -426,7 +318,6 @@ class _StructuredSectionView extends StatelessWidget {
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
-  final bool jsonBodyShrinkWrap;
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
@@ -454,7 +345,6 @@ class _StructuredSectionView extends StatelessWidget {
               searchController: searchController,
               searchNavigator: searchNavigator,
               onSearchChanged: onSearchChanged,
-              jsonShrinkWrap: jsonBodyShrinkWrap,
               detachPathFooter: detachJsonPathFooter,
               hoveredPathNotifier: hoveredPathNotifier,
               reportsSearchMatches: reportsSearchMatches,
@@ -662,7 +552,6 @@ class _BodyContentView extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
-    this.jsonShrinkWrap = false,
     this.detachPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
@@ -672,7 +561,6 @@ class _BodyContentView extends StatelessWidget {
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
-  final bool jsonShrinkWrap;
   final bool detachPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
@@ -680,29 +568,16 @@ class _BodyContentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (body.isJson) {
-      if (jsonShrinkWrap) {
-        return JsonTreeView(
-          rootValue: body.jsonValue,
-          searchController: searchController!,
-          searchNavigator: reportsSearchMatches ? searchNavigator : null,
-          onSearchChanged: reportsSearchMatches ? onSearchChanged : null,
-          reportsSearchMatches: reportsSearchMatches,
-          shrinkWrap: true,
-          showPathFooter: !detachPathFooter,
-          detachPathFooter: detachPathFooter,
-          hoveredPathNotifier: hoveredPathNotifier,
-        );
-      }
-
-      return SizedBox(
-        height: 280,
-        child: JsonTreeView(
-          rootValue: body.jsonValue,
-          searchController: searchController!,
-          searchNavigator: searchNavigator,
-          onSearchChanged: onSearchChanged,
-          reportsSearchMatches: reportsSearchMatches,
-        ),
+      return JsonTreeView(
+        rootValue: body.jsonValue,
+        searchController: searchController!,
+        searchNavigator: reportsSearchMatches ? searchNavigator : null,
+        onSearchChanged: reportsSearchMatches ? onSearchChanged : null,
+        reportsSearchMatches: reportsSearchMatches,
+        shrinkWrap: true,
+        showPathFooter: !detachPathFooter,
+        detachPathFooter: detachPathFooter,
+        hoveredPathNotifier: hoveredPathNotifier,
       );
     }
 
