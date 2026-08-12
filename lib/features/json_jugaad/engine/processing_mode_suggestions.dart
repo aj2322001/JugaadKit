@@ -10,10 +10,31 @@ abstract final class ProcessingModeSuggestions {
 
     final suggestions = <ProcessingMode>[];
 
+    if (JugaadValidator.looksLikeCurl(trimmed)) {
+      suggestions.add(ProcessingMode.curl);
+    }
+    if (JugaadValidator.looksLikeHttpResponse(trimmed)) {
+      suggestions.add(ProcessingMode.httpResponse);
+    }
     if (JugaadValidator.tryParseJson(trimmed) != null ||
         JugaadValidator.looksLikeJsonCandidate(trimmed) ||
         JugaadValidator.looksLikeEscapedJson(trimmed)) {
       suggestions.add(ProcessingMode.json);
+    }
+    if (JugaadValidator.looksLikeHttpHeaders(trimmed)) {
+      suggestions.add(ProcessingMode.httpHeaders);
+    }
+    if (JugaadValidator.looksLikeStandaloneUrl(trimmed)) {
+      suggestions.add(ProcessingMode.url);
+    }
+    if (JugaadValidator.looksLikeCsv(trimmed)) {
+      suggestions.add(ProcessingMode.csv);
+    }
+    if (JugaadValidator.looksLikeYaml(trimmed)) {
+      suggestions.add(ProcessingMode.yaml);
+    }
+    if (JugaadValidator.looksLikeXml(trimmed)) {
+      suggestions.add(ProcessingMode.xml);
     }
     if (JugaadValidator.looksUrlEncoded(trimmed)) {
       suggestions.add(ProcessingMode.urlDecode);

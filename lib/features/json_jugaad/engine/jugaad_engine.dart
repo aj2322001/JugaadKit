@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.dart';
+import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
 import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
@@ -8,14 +9,22 @@ import 'package:jugaadkit/features/json_jugaad/models/transformation_step.dart';
 
 import 'base64_codec.dart';
 import 'confidence.dart';
+import 'csv_codec.dart';
+import 'curl_codec.dart';
 import 'detected_format.dart';
 import 'format_codecs.dart';
 import 'hex_codec.dart';
 import 'html_entity_codec.dart';
+import 'http_headers_codec.dart';
+import 'http_response_codec.dart';
 import 'jwt_codec.dart';
 import 'jugaad_validator.dart';
 import 'processing_mode_suggestions.dart';
+import 'structured_output_builder.dart';
 import 'text_preview.dart';
+import 'url_inspector_codec.dart';
+import 'xml_codec.dart';
+import 'yaml_codec.dart';
 
 class _TransformCandidate {
   const _TransformCandidate({
@@ -102,6 +111,18 @@ class JugaadEngine {
       transformCount++;
     }
 
+    final earlyResult = _tryEarlyFormatDetection(
+      current: current,
+      steps: steps,
+      transformCount: transformCount,
+      originalInput: originalInput,
+      processingMode: processingMode,
+      isAutomatic: isAutomatic,
+    );
+    if (earlyResult != null) {
+      return earlyResult;
+    }
+
     final jwt = JwtCodec.tryDecode(current);
     if (jwt != null) {
       steps.add(
@@ -178,6 +199,18 @@ class JugaadEngine {
         processingMode: processingMode,
         isAutomatic: isAutomatic,
       );
+    }
+
+    final structuredResult = _tryStructuredDataFormats(
+      current: current,
+      steps: steps,
+      transformCount: transformCount,
+      originalInput: originalInput,
+      processingMode: processingMode,
+      isAutomatic: isAutomatic,
+    );
+    if (structuredResult != null) {
+      return structuredResult;
     }
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
@@ -318,6 +351,62 @@ class JugaadEngine {
           originalInput: originalInput,
           processingMode: mode,
           primaryFormat: DetectedFormat.json,
+        );
+      case ProcessingMode.curl:
+        return _processManualCurl(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.httpHeaders:
+        return _processManualHttpHeaders(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.url:
+        return _processManualUrl(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.csv:
+        return _processManualCsv(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.yaml:
+        return _processManualYaml(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.xml:
+        return _processManualXml(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.httpResponse:
+        return _processManualHttpResponse(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
         );
       case ProcessingMode.urlDecode:
         return _applyManualCodecTransform(
@@ -565,8 +654,470 @@ class JugaadEngine {
       ProcessingMode.jwt => 'Unable to decode this input as JWT.',
       ProcessingMode.ndjson => 'Unable to parse this input as NDJSON.',
       ProcessingMode.json => 'Unable to parse this input as JSON.',
+      ProcessingMode.curl => 'Unable to parse this input as a cURL command.',
+      ProcessingMode.httpHeaders => 'Unable to parse this input as HTTP headers.',
+      ProcessingMode.url => 'Unable to parse this input as a URL.',
+      ProcessingMode.csv => 'Unable to parse this input as CSV.',
+      ProcessingMode.yaml => 'Unable to parse this input as YAML.',
+      ProcessingMode.xml => 'Unable to parse this input as XML.',
+      ProcessingMode.httpResponse => 'Unable to parse this input as an HTTP response.',
       ProcessingMode.auto => 'Unable to process this input.',
     };
+  }
+
+  JsonJugaadResult? _tryEarlyFormatDetection({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode processingMode,
+    required bool isAutomatic,
+  }) {
+    final curl = CurlCodec.tryParse(current);
+    if (curl != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedCurl,
+          description: 'Parsed cURL command into readable HTTP request',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: CurlCodec.format(curl),
+        structured: StructuredOutputBuilder.fromCurl(curl),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.curl,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final httpResponse = HttpResponseCodec.tryParse(current);
+    if (httpResponse != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedHttpResponse,
+          description: 'Parsed HTTP response into readable format',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: HttpResponseCodec.format(httpResponse),
+        structured: StructuredOutputBuilder.fromHttpResponse(httpResponse),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.httpResponse,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    return null;
+  }
+
+  JsonJugaadResult _buildStructuredTextResult({
+    required String text,
+    required JugaadStructuredOutput structured,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required DetectedFormat detectedFormat,
+    required Confidence confidence,
+    required ProcessingMode processingMode,
+    required bool isAutomatic,
+  }) {
+    return JsonJugaadResult.fromStructured(
+      text: text,
+      structuredOutput: structured,
+      steps: steps,
+      transformCount: transformCount,
+      originalInput: originalInput,
+      detectedFormat: detectedFormat,
+      confidence: confidence,
+      processingMode: processingMode,
+      isAutomatic: isAutomatic,
+    );
+  }
+
+  JsonJugaadResult _processManualCurl({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final curl = CurlCodec.tryParse(current);
+    if (curl == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedCurl,
+        description: 'Parsed cURL command into readable HTTP request',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: CurlCodec.format(curl),
+      structured: StructuredOutputBuilder.fromCurl(curl),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.curl,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualHttpHeaders({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final headers = HttpHeadersCodec.tryParse(current);
+    if (headers == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedHttpHeaders,
+        description: 'Parsed HTTP headers',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: HttpHeadersCodec.format(headers),
+      structured: StructuredOutputBuilder.fromHttpHeaders(headers),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.httpHeaders,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualUrl({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final uri = UrlInspectorCodec.tryParseStandalone(current);
+    if (uri == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedUrl,
+        description: 'Parsed URL breakdown',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: UrlInspectorCodec.format(uri),
+      structured: StructuredOutputBuilder.fromUrl(uri),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.url,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualCsv({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final csv = CsvCodec.tryParse(current);
+    if (csv == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedCsv,
+        description: 'Converted CSV to JSON',
+      ),
+    );
+
+    return _buildJsonResult(
+      value: csv.rows,
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.csv,
+      confidence: Confidence.high,
+      hadPriorTransforms: true,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualYaml({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final yaml = YamlCodec.tryParse(current);
+    if (yaml == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedYaml,
+        description: 'Converted YAML to JSON',
+      ),
+    );
+
+    return _buildJsonResult(
+      value: yaml,
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.yaml,
+      confidence: Confidence.high,
+      hadPriorTransforms: true,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualXml({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final xml = XmlCodec.tryFormat(current);
+    if (xml == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.formattedXml,
+        description: 'Formatted XML',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: xml,
+      structured: StructuredOutputBuilder.fromXml(xml),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.xml,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualHttpResponse({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final response = HttpResponseCodec.tryParse(current);
+    if (response == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedHttpResponse,
+        description: 'Parsed HTTP response into readable format',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: HttpResponseCodec.format(response),
+      structured: StructuredOutputBuilder.fromHttpResponse(response),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.httpResponse,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult? _tryStructuredDataFormats({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode processingMode,
+    required bool isAutomatic,
+  }) {
+    final headers = HttpHeadersCodec.tryParse(current);
+    if (headers != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedHttpHeaders,
+          description: 'Parsed HTTP headers',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: HttpHeadersCodec.format(headers),
+        structured: StructuredOutputBuilder.fromHttpHeaders(headers),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.httpHeaders,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final xml = XmlCodec.tryFormat(current);
+    if (xml != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.formattedXml,
+          description: 'Formatted XML',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: xml,
+        structured: StructuredOutputBuilder.fromXml(xml),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.xml,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final yaml = YamlCodec.tryParse(current);
+    if (yaml != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedYaml,
+          description: 'Converted YAML to JSON',
+        ),
+      );
+      return _buildJsonResult(
+        value: yaml,
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.yaml,
+        confidence: Confidence.high,
+        hadPriorTransforms: true,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final csv = CsvCodec.tryParse(current);
+    if (csv != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedCsv,
+          description: 'Converted CSV to JSON',
+        ),
+      );
+      return _buildJsonResult(
+        value: csv.rows,
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.csv,
+        confidence: Confidence.high,
+        hadPriorTransforms: true,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final uri = UrlInspectorCodec.tryParseStandalone(
+      current,
+      conservative: isAutomatic,
+    );
+    if (uri != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedUrl,
+          description: 'Parsed URL breakdown',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: UrlInspectorCodec.format(uri),
+        structured: StructuredOutputBuilder.fromUrl(uri),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.url,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    return null;
   }
 
   bool _shouldWrapAsAmbiguousAutoFailure(JsonJugaadError error) {

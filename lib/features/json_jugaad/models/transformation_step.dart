@@ -16,6 +16,13 @@ enum TransformationType {
   parsedQueryString,
   detectedJwt,
   extractedNestedJson,
+  parsedCurl,
+  parsedHttpHeaders,
+  parsedUrl,
+  parsedCsv,
+  parsedYaml,
+  formattedXml,
+  parsedHttpResponse,
 }
 
 class TransformationStep {

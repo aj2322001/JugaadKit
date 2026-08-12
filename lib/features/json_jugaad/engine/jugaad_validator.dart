@@ -101,6 +101,10 @@ abstract final class JugaadValidator {
       return false;
     }
 
+    if (looksLikeStandaloneUrl(input)) {
+      return false;
+    }
+
     final pairs = input.split('&');
     if (pairs.length < 2) {
       return false;
@@ -201,5 +205,146 @@ abstract final class JugaadValidator {
     return input.contains(r'\"') ||
         input.contains(r'\\') ||
         RegExp(r'\\u[0-9a-fA-F]{4}').hasMatch(input);
+  }
+
+  static bool looksLikeCurl(String input) {
+    final trimmed = input.trim();
+    return RegExp(r'^curl(\s|$)', caseSensitive: false).hasMatch(trimmed);
+  }
+
+  static bool looksLikeHttpResponse(String input) {
+    final firstLine = input.trim().split(RegExp(r'\r?\n')).first.trim();
+    return RegExp(r'^HTTP/\d(?:\.\d)?\s+\d{3}\b', caseSensitive: false)
+        .hasMatch(firstLine);
+  }
+
+  static bool looksLikeHttpHeaders(String input) {
+    if (looksLikeHttpResponse(input) || looksLikeCurl(input)) {
+      return false;
+    }
+
+    final lines = input
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (lines.length < 2) {
+      return false;
+    }
+
+    var headerLines = 0;
+    for (final line in lines) {
+      if (RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+:\s*.+$").hasMatch(line)) {
+        headerLines++;
+      }
+    }
+
+    return headerLines >= 2 && headerLines == lines.length;
+  }
+
+  static bool looksLikeStandaloneUrl(String input) {
+    final trimmed = input.trim();
+    if (trimmed.contains('\n') || looksLikeCurl(trimmed)) {
+      return false;
+    }
+
+    if (looksLikeJsonCandidate(trimmed)) {
+      return false;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return false;
+    }
+
+    return uri.scheme == 'http' ||
+        uri.scheme == 'https' ||
+        uri.scheme == 'ftp';
+  }
+
+  static bool looksLikeCsv(String input) {
+    if (looksLikeJsonCandidate(input.trim())) {
+      return false;
+    }
+
+    if (looksLikeXml(input) || looksLikeYaml(input)) {
+      return false;
+    }
+
+    final lines = input
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trimRight())
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
+
+    if (lines.length < 2) {
+      return false;
+    }
+
+    if (!lines.first.contains(',')) {
+      return false;
+    }
+
+    return RegExp(r'^[A-Za-z_][\w-]*(,|$)').hasMatch(lines.first);
+  }
+
+  static bool looksLikeInspectableUrl(String input) {
+    final trimmed = input.trim();
+    if (!looksLikeStandaloneUrl(trimmed)) {
+      return false;
+    }
+
+    final uri = Uri.parse(trimmed);
+    final hasNonDefaultPort =
+        uri.hasPort && uri.port != 80 && uri.port != 443;
+    final hasFragment = uri.fragment.isNotEmpty;
+    final hasMultipleQueryParams = uri.queryParameters.length >= 2;
+    final hasDeepPath = uri.pathSegments.length >= 2;
+
+    return hasNonDefaultPort ||
+        hasFragment ||
+        hasMultipleQueryParams ||
+        hasDeepPath;
+  }
+
+  static bool looksLikeYaml(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty ||
+        looksLikeJsonCandidate(trimmed) ||
+        looksLikeXml(trimmed) ||
+        looksLikeCurl(trimmed) ||
+        looksLikeHttpResponse(trimmed)) {
+      return false;
+    }
+
+    final lines = trimmed
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trimRight())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) {
+      return false;
+    }
+
+    var yamlLines = 0;
+    for (final line in lines) {
+      if (RegExp(r'^\s*[\w.-]+:\s*.+$').hasMatch(line) ||
+          RegExp(r'^\s*-\s+.+$').hasMatch(line)) {
+        yamlLines++;
+      }
+    }
+
+    return yamlLines >= 2;
+  }
+
+  static bool looksLikeXml(String input) {
+    final trimmed = input.trim();
+    if (!trimmed.startsWith('<')) {
+      return false;
+    }
+
+    return trimmed.contains('</') || trimmed.contains('/>');
   }
 }

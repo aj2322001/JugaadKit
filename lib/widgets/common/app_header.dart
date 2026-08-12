@@ -27,42 +27,35 @@ class AppHeader extends StatelessWidget {
           bottom: BorderSide(color: theme.dividerColor),
         ),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppConstants.maxContentWidth,
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => context.go(AppRoutes.home),
+            borderRadius: BorderRadius.circular(6),
+            child: const AppLogo(),
           ),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () => context.go(AppRoutes.home),
-                borderRadius: BorderRadius.circular(6),
-                child: const AppLogo(),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppConstants.appName,
-                      style: theme.textTheme.titleLarge,
-                    ),
-                    Text(
-                      AppConstants.tagline,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppConstants.appName,
+                  style: theme.textTheme.titleLarge,
                 ),
-              ),
-              IconButton(
-                onPressed: onToggleTheme,
-                tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
-                icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-              ),
-            ],
+                Text(
+                  AppConstants.tagline,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
-        ),
+          IconButton(
+            onPressed: onToggleTheme,
+            tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+            icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+          ),
+        ],
       ),
     );
   }

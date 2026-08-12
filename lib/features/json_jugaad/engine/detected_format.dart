@@ -15,6 +15,13 @@ enum DetectedFormat {
   looseJson,
   jwt,
   compressed,
+  curl,
+  httpHeaders,
+  url,
+  csv,
+  yaml,
+  xml,
+  httpResponse,
 }
 
 extension DetectedFormatLabel on DetectedFormat {
@@ -52,6 +59,20 @@ extension DetectedFormatLabel on DetectedFormat {
         return 'JWT';
       case DetectedFormat.compressed:
         return 'Compressed data';
+      case DetectedFormat.curl:
+        return 'cURL';
+      case DetectedFormat.httpHeaders:
+        return 'HTTP Headers';
+      case DetectedFormat.url:
+        return 'URL';
+      case DetectedFormat.csv:
+        return 'CSV';
+      case DetectedFormat.yaml:
+        return 'YAML';
+      case DetectedFormat.xml:
+        return 'XML';
+      case DetectedFormat.httpResponse:
+        return 'HTTP Response';
     }
   }
 }

@@ -11,6 +11,8 @@ import 'package:jugaadkit/widgets/common/action_button.dart';
 import 'package:jugaadkit/widgets/common/empty_state.dart';
 import 'package:jugaadkit/widgets/common/error_state.dart';
 
+import 'structured_output_view.dart';
+
 import 'json_tree_view.dart';
 
 class OutputPanel extends StatelessWidget {
@@ -38,7 +40,13 @@ class OutputPanel extends StatelessWidget {
         JsonJugaadStatus.processing => const _OutputShell(
             child: Center(child: CircularProgressIndicator()),
           ),
-        JsonJugaadStatus.success when result != null => _JsonOutputExplorer(
+        JsonJugaadStatus.success when result != null && result!.isJsonOutput =>
+          _JsonOutputExplorer(
+            result: result!,
+          ),
+        JsonJugaadStatus.success when result != null && result!.hasStructuredOutput =>
+          StructuredOutputView(result: result!),
+        JsonJugaadStatus.success when result != null => _TextOutputView(
             result: result!,
           ),
         JsonJugaadStatus.error => _OutputShell(
@@ -249,6 +257,72 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
                     searchController: _searchController,
                     searchNavigator: _searchNavigator,
                     onSearchChanged: _onSearchChanged,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TextOutputView extends StatelessWidget {
+  const _TextOutputView({required this.result});
+
+  final JsonJugaadResult result;
+
+  Future<void> _copyAll(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: result.formattedJson));
+    if (!context.mounted) {
+      return;
+    }
+    showCopyFeedback(context, CopyFeedbackType.all);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+          child: Row(
+            children: [
+              Text('Output', style: theme.textTheme.titleMedium),
+              const Spacer(),
+              ActionButton(
+                label: 'Copy all',
+                icon: Icons.copy,
+                onPressed: () => _copyAll(context),
+                tooltip: 'Copy formatted output',
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    result.formattedJson,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      height: 1.5,
+                    ),
                   ),
                 ),
               ),

@@ -58,25 +58,20 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
               listenable: widget.viewModel,
               builder: (context, _) {
                 final state = widget.viewModel.state;
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppConstants.maxContentWidth,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(
-                        MediaQuery.sizeOf(context).width >=
-                                AppConstants.desktopBreakpoint
-                            ? 24
-                            : 16,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const ToolHeader(),
-                          const SizedBox(height: 24),
-                          Expanded(
-                            child: LayoutBuilder(
+                return Padding(
+                  padding: EdgeInsets.all(
+                    MediaQuery.sizeOf(context).width >=
+                            AppConstants.desktopBreakpoint
+                        ? 24
+                        : 16,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const ToolHeader(),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final isDesktop = constraints.maxWidth >=
                                     AppConstants.desktopBreakpoint;
@@ -156,9 +151,7 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                               },
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 );
               },

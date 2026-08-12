@@ -1,6 +1,13 @@
 enum ProcessingMode {
   auto,
   json,
+  curl,
+  httpHeaders,
+  url,
+  csv,
+  yaml,
+  xml,
+  httpResponse,
   urlDecode,
   base64,
   hex,
@@ -17,6 +24,20 @@ extension ProcessingModeLabel on ProcessingMode {
         return 'Auto';
       case ProcessingMode.json:
         return 'JSON';
+      case ProcessingMode.curl:
+        return 'cURL';
+      case ProcessingMode.httpHeaders:
+        return 'HTTP Headers';
+      case ProcessingMode.url:
+        return 'URL';
+      case ProcessingMode.csv:
+        return 'CSV';
+      case ProcessingMode.yaml:
+        return 'YAML';
+      case ProcessingMode.xml:
+        return 'XML';
+      case ProcessingMode.httpResponse:
+        return 'HTTP Response';
       case ProcessingMode.urlDecode:
         return 'URL Decode';
       case ProcessingMode.base64:
@@ -46,6 +67,13 @@ extension ProcessingModeLabel on ProcessingMode {
   static const selectableModes = [
     ProcessingMode.auto,
     ProcessingMode.json,
+    ProcessingMode.curl,
+    ProcessingMode.httpHeaders,
+    ProcessingMode.url,
+    ProcessingMode.csv,
+    ProcessingMode.yaml,
+    ProcessingMode.xml,
+    ProcessingMode.httpResponse,
     ProcessingMode.urlDecode,
     ProcessingMode.base64,
     ProcessingMode.hex,

@@ -22,6 +22,27 @@ abstract final class DetectionSummary {
     if (detectedFormat == DetectedFormat.queryString) {
       return 'Query string';
     }
+    if (detectedFormat == DetectedFormat.curl) {
+      return 'cURL';
+    }
+    if (detectedFormat == DetectedFormat.httpHeaders) {
+      return 'HTTP Headers';
+    }
+    if (detectedFormat == DetectedFormat.url) {
+      return 'URL Breakdown';
+    }
+    if (detectedFormat == DetectedFormat.csv) {
+      return 'CSV';
+    }
+    if (detectedFormat == DetectedFormat.yaml) {
+      return 'YAML';
+    }
+    if (detectedFormat == DetectedFormat.xml) {
+      return 'XML';
+    }
+    if (detectedFormat == DetectedFormat.httpResponse) {
+      return 'HTTP Response';
+    }
 
     final chain = <String>[];
     for (final step in steps) {
@@ -61,6 +82,13 @@ abstract final class DetectionSummary {
       TransformationType.parsedNdjson => 'NDJSON',
       TransformationType.detectedJwt => 'JWT',
       TransformationType.extractedNestedJson => 'Nested JSON',
+      TransformationType.parsedCurl => 'cURL',
+      TransformationType.parsedHttpHeaders => 'HTTP Headers',
+      TransformationType.parsedUrl => 'URL Breakdown',
+      TransformationType.parsedCsv => 'CSV',
+      TransformationType.parsedYaml => 'YAML',
+      TransformationType.formattedXml => 'XML',
+      TransformationType.parsedHttpResponse => 'HTTP Response',
       _ => null,
     };
   }

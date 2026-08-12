@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/seo/seo_constants.dart';
 import '../../../core/seo/seo_metadata.dart';
@@ -29,37 +28,30 @@ class HomeView extends StatelessWidget {
         children: [
           AppHeader(onToggleTheme: onToggleTheme),
           Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: AppConstants.maxContentWidth,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Tools',
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Pick a tool to get started.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _ToolCard(
-                        title: 'Data Jugaad',
-                        description: "Paste messy developer data. We'll figure it out.",
-                        icon: Icons.data_object_outlined,
-                        onTap: () => context.go(AppRoutes.dataJugaad),
-                      ),
-                    ],
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Tools',
+                    style: theme.textTheme.headlineSmall,
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Pick a tool to get started.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _ToolCard(
+                    title: 'Data Jugaad',
+                    description: "Paste messy developer data. We'll figure it out.",
+                    icon: Icons.data_object_outlined,
+                    onTap: () => context.go(AppRoutes.dataJugaad),
+                  ),
+                ],
               ),
             ),
           ),

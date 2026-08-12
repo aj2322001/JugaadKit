@@ -3,7 +3,6 @@ abstract final class AppConstants {
   static const String tagline = 'Developer tools for the messy stuff.';
   static const String appIconAsset = 'assets/icons/app_icon.png';
 
-  static const double maxContentWidth = 1280;
   static const double desktopBreakpoint = 900;
   static const double panelMinHeight = 360;
 }
