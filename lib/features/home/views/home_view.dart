@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/seo/seo_constants.dart';
 import '../../../core/seo/seo_metadata.dart';
-import '../../../widgets/common/app_header.dart';
+import '../../../widgets/common/app_page_shell.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({
@@ -23,39 +23,33 @@ class HomeView extends StatelessWidget {
 
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: Column(
-        children: [
-          AppHeader(onToggleTheme: onToggleTheme),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Tools',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Pick a tool to get started.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _ToolCard(
-                    title: 'Data Jugaad',
-                    description: "Paste messy developer data. We'll figure it out.",
-                    icon: Icons.data_object_outlined,
-                    onTap: () => context.go(AppRoutes.dataJugaad),
-                  ),
-                ],
+    return AppPageShell(
+      onToggleTheme: onToggleTheme,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Tools',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Pick a tool to get started.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            _ToolCard(
+              title: 'Data Jugaad',
+              description: "Paste messy developer data. We'll figure it out.",
+              icon: Icons.data_object_outlined,
+              onTap: () => context.go(AppRoutes.dataJugaad),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -98,7 +98,7 @@ class InputPanel extends StatelessWidget {
                   height: 1.5,
                 ),
                 decoration: const InputDecoration(
-                  hintText: 'Paste your data here...',
+                  hintText: 'Paste data here...',
                   alignLabelWithHint: true,
                 ),
                 keyboardType: TextInputType.multiline,

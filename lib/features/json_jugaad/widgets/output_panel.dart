@@ -34,7 +34,7 @@ class OutputPanel extends StatelessWidget {
         JsonJugaadStatus.empty => const _OutputShell(
             child: EmptyState(
               title: 'No output yet',
-              message: 'Paste JSON in the input panel to see formatted output.',
+              message: 'Paste data in the input panel to see formatted output.',
             ),
           ),
         JsonJugaadStatus.processing => const _OutputShell(

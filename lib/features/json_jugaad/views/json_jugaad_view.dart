@@ -11,7 +11,7 @@ import 'package:jugaadkit/features/json_jugaad/view_models/json_jugaad_view_mode
 import 'package:jugaadkit/features/json_jugaad/widgets/input_panel.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/output_panel.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/tool_header.dart';
-import 'package:jugaadkit/widgets/common/app_header.dart';
+import 'package:jugaadkit/widgets/common/app_page_shell.dart';
 
 class JsonJugaadView extends StatefulWidget {
   const JsonJugaadView({
@@ -49,29 +49,25 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
       description: SeoConstants.jsonJugaadDescription,
     );
 
-    return Scaffold(
-      body: Column(
-        children: [
-          AppHeader(onToggleTheme: widget.onToggleTheme),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: widget.viewModel,
-              builder: (context, _) {
-                final state = widget.viewModel.state;
-                return Padding(
-                  padding: EdgeInsets.all(
-                    MediaQuery.sizeOf(context).width >=
-                            AppConstants.desktopBreakpoint
-                        ? 24
-                        : 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const ToolHeader(),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: LayoutBuilder(
+    return AppPageShell(
+      onToggleTheme: widget.onToggleTheme,
+      child: ListenableBuilder(
+        listenable: widget.viewModel,
+        builder: (context, _) {
+          final state = widget.viewModel.state;
+          return Padding(
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width >= AppConstants.desktopBreakpoint
+                  ? 24
+                  : 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const ToolHeader(),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final isDesktop = constraints.maxWidth >=
                                     AppConstants.desktopBreakpoint;
@@ -151,13 +147,10 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                               },
                             ),
                           ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+                        ],
+                      ),
+                    );
+        },
       ),
     );
   }
