@@ -43,6 +43,18 @@ abstract final class DetectionSummary {
     if (detectedFormat == DetectedFormat.httpResponse) {
       return 'HTTP Response';
     }
+    if (detectedFormat == DetectedFormat.cookie) {
+      return 'Cookie';
+    }
+    if (detectedFormat == DetectedFormat.authorization) {
+      return 'Authorization Header';
+    }
+    if (detectedFormat == DetectedFormat.multipart) {
+      return 'Multipart Request';
+    }
+    if (detectedFormat == DetectedFormat.httpError) {
+      return 'HTTP Error';
+    }
 
     final chain = <String>[];
     for (final step in steps) {
@@ -89,6 +101,10 @@ abstract final class DetectionSummary {
       TransformationType.parsedYaml => 'YAML',
       TransformationType.formattedXml => 'XML',
       TransformationType.parsedHttpResponse => 'HTTP Response',
+      TransformationType.parsedCookie => 'Cookie',
+      TransformationType.parsedAuthorization => 'Authorization Header',
+      TransformationType.parsedMultipart => 'Multipart Request',
+      TransformationType.parsedHttpError => 'HTTP Error',
       _ => null,
     };
   }

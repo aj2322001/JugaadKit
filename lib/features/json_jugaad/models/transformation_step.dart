@@ -23,6 +23,10 @@ enum TransformationType {
   parsedYaml,
   formattedXml,
   parsedHttpResponse,
+  parsedCookie,
+  parsedAuthorization,
+  parsedMultipart,
+  parsedHttpError,
 }
 
 class TransformationStep {

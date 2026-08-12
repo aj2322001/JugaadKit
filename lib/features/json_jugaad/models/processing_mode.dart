@@ -15,6 +15,10 @@ enum ProcessingMode {
   htmlDecode,
   jwt,
   ndjson,
+  cookie,
+  authorization,
+  multipart,
+  httpError,
 }
 
 extension ProcessingModeLabel on ProcessingMode {
@@ -52,6 +56,14 @@ extension ProcessingModeLabel on ProcessingMode {
         return 'JWT';
       case ProcessingMode.ndjson:
         return 'NDJSON';
+      case ProcessingMode.cookie:
+        return 'Cookie';
+      case ProcessingMode.authorization:
+        return 'Authorization Header';
+      case ProcessingMode.multipart:
+        return 'Multipart Request';
+      case ProcessingMode.httpError:
+        return 'HTTP Error';
     }
   }
 
@@ -81,5 +93,9 @@ extension ProcessingModeLabel on ProcessingMode {
     ProcessingMode.htmlDecode,
     ProcessingMode.jwt,
     ProcessingMode.ndjson,
+    ProcessingMode.cookie,
+    ProcessingMode.authorization,
+    ProcessingMode.multipart,
+    ProcessingMode.httpError,
   ];
 }

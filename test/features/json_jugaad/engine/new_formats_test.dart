@@ -87,8 +87,8 @@ Cache-Control: no-cache
 
     test('codec supports repeated headers', () {
       final parsed = HttpHeadersCodec.tryParse('''
-Set-Cookie: a=1
-Set-Cookie: b=2
+X-Trace-Id: abc
+X-Trace-Id: def
 ''');
       expect(parsed, isNotNull);
       expect(parsed!.headers.length, 2);

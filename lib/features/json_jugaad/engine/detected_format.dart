@@ -22,6 +22,10 @@ enum DetectedFormat {
   yaml,
   xml,
   httpResponse,
+  cookie,
+  authorization,
+  multipart,
+  httpError,
 }
 
 extension DetectedFormatLabel on DetectedFormat {
@@ -73,6 +77,14 @@ extension DetectedFormatLabel on DetectedFormat {
         return 'XML';
       case DetectedFormat.httpResponse:
         return 'HTTP Response';
+      case DetectedFormat.cookie:
+        return 'Cookie';
+      case DetectedFormat.authorization:
+        return 'Authorization Header';
+      case DetectedFormat.multipart:
+        return 'Multipart Request';
+      case DetectedFormat.httpError:
+        return 'HTTP Error';
     }
   }
 }

@@ -27,12 +27,20 @@ class JsonTreeView extends StatefulWidget {
     required this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
+    this.shrinkWrap = false,
+    this.showPathFooter = true,
+    this.hoveredPathNotifier,
+    this.detachPathFooter = false,
   });
 
   final Object? rootValue;
   final TextEditingController searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final JsonTreeSearchListener? onSearchChanged;
+  final bool shrinkWrap;
+  final bool showPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool detachPathFooter;
 
   @override
   State<JsonTreeView> createState() => _JsonTreeViewState();
@@ -46,7 +54,10 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   late List<VisibleTreeRow> _visibleRows;
   final Set<String> _collapsedPaths = {};
   Set<String>? _savedCollapsedPaths;
-  final ValueNotifier<String?> _hoveredPath = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _internalHoveredPath = ValueNotifier<String?>(null);
+
+  ValueNotifier<String?> get _hoveredPath =>
+      widget.hoveredPathNotifier ?? _internalHoveredPath;
 
   String _searchQuery = '';
   JsonTreeSearchResult? _searchResult;
@@ -91,7 +102,9 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     _hoverClearTimer?.cancel();
     _searchDebounceTimer?.cancel();
     widget.searchController.removeListener(_onSearchTextChanged);
-    _hoveredPath.dispose();
+    if (widget.hoveredPathNotifier == null) {
+      _internalHoveredPath.dispose();
+    }
     super.dispose();
   }
 
@@ -250,77 +263,91 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onExit: (_) => _scheduleHoverClear(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    final treeList = ListView.builder(
+      shrinkWrap: widget.shrinkWrap,
+      physics: widget.shrinkWrap
+          ? const NeverScrollableScrollPhysics()
+          : null,
+      padding: const EdgeInsets.only(
+        right: JsonTreeLayout.trailingActionsWidth +
+            JsonTreeLayout.scrollbarGutter,
+        bottom: 8,
+      ),
+      itemCount: _visibleRows.length,
+      itemBuilder: (context, index) {
+        final row = _visibleRows[index];
+        final node = row.node;
+        final activeMatchPath = _activeMatchPath;
+        final isActiveSearchMatch =
+            !row.isCloseBracket && node.path == activeMatchPath;
+        final rowKey = isActiveSearchMatch
+            ? (_scrollTargetKey ?? ValueKey(node.path))
+            : ValueKey(
+                row.isCloseBracket ? '${node.path}::close' : node.path,
+              );
+
+        if (row.isCloseBracket) {
+          return JsonBracketRow(
+            key: rowKey,
+            node: node,
+            onHover: _onNodeHover,
+          );
+        }
+
+        if (node.isExpandable) {
+          return JsonExpandableRow(
+            key: rowKey,
+            node: node,
+            isExpanded: row.isExpanded,
+            searchQuery: _searchQuery,
+            searchResult: _searchResult,
+            hoveredPath: _hoveredPath,
+            isActiveSearchMatch: isActiveSearchMatch,
+            onToggle: _toggleExpansion,
+            onHover: _onNodeHover,
+          );
+        }
+
+        return JsonValueRow(
+          key: rowKey,
+          node: node,
+          searchQuery: _searchQuery,
+          searchResult: _searchResult,
+          hoveredPath: _hoveredPath,
+          isActiveSearchMatch: isActiveSearchMatch,
+          onHover: _onNodeHover,
+        );
+      },
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.shrinkWrap)
+          treeList
+        else
           Expanded(
             child: Scrollbar(
               thumbVisibility: true,
-              child: ListView.builder(
-                padding: const EdgeInsets.only(
-                  right: JsonTreeLayout.trailingActionsWidth +
-                      JsonTreeLayout.scrollbarGutter,
-                  bottom: 8,
-                ),
-                itemCount: _visibleRows.length,
-                itemBuilder: (context, index) {
-                  final row = _visibleRows[index];
-                  final node = row.node;
-                  final activeMatchPath = _activeMatchPath;
-                  final isActiveSearchMatch =
-                      !row.isCloseBracket && node.path == activeMatchPath;
-                  final rowKey = isActiveSearchMatch
-                      ? (_scrollTargetKey ?? ValueKey(node.path))
-                      : ValueKey(
-                          row.isCloseBracket
-                              ? '${node.path}::close'
-                              : node.path,
-                        );
-
-                  if (row.isCloseBracket) {
-                    return JsonBracketRow(
-                      key: rowKey,
-                      node: node,
-                      onHover: _onNodeHover,
-                    );
-                  }
-
-                  if (node.isExpandable) {
-                    return JsonExpandableRow(
-                      key: rowKey,
-                      node: node,
-                      isExpanded: row.isExpanded,
-                      searchQuery: _searchQuery,
-                      searchResult: _searchResult,
-                      hoveredPath: _hoveredPath,
-                      isActiveSearchMatch: isActiveSearchMatch,
-                      onToggle: _toggleExpansion,
-                      onHover: _onNodeHover,
-                    );
-                  }
-
-                  return JsonValueRow(
-                    key: rowKey,
-                    node: node,
-                    searchQuery: _searchQuery,
-                    searchResult: _searchResult,
-                    hoveredPath: _hoveredPath,
-                    isActiveSearchMatch: isActiveSearchMatch,
-                    onHover: _onNodeHover,
-                  );
-                },
-              ),
+              child: treeList,
             ),
           ),
-          _PathFooter(
+        if (widget.showPathFooter && !widget.detachPathFooter)
+          JsonTreePathFooter(
             hoveredPath: _hoveredPath,
             onHover: _cancelHoverClear,
             onCopyPath: (path) => _copyPath(path),
           ),
-        ],
-      ),
+      ],
+    );
+
+    if (widget.detachPathFooter) {
+      return content;
+    }
+
+    return MouseRegion(
+      onExit: (_) => _scheduleHoverClear(),
+      child: content,
     );
   }
 
@@ -333,8 +360,9 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   }
 }
 
-class _PathFooter extends StatelessWidget {
-  const _PathFooter({
+class JsonTreePathFooter extends StatelessWidget {
+  const JsonTreePathFooter({
+    super.key,
     required this.hoveredPath,
     required this.onHover,
     required this.onCopyPath,

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
+import 'package:jugaadkit/features/json_jugaad/engine/detected_format.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_body_content.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
@@ -21,25 +24,62 @@ class StructuredOutputView extends StatefulWidget {
 }
 
 class _StructuredOutputViewState extends State<StructuredOutputView> {
-  TextEditingController? _searchController;
-  JsonTreeSearchNavigator? _searchNavigator;
+  late final TextEditingController _searchController;
+  late final JsonTreeSearchNavigator _searchNavigator;
+  late final ValueNotifier<String?> _hoveredPathNotifier;
+  Timer? _hoverClearTimer;
   String _searchQuery = '';
   int? _matchCount;
+
+  static const Duration _hoverClearDelay = Duration(milliseconds: 150);
+
+  bool get _hasJsonSearch =>
+      widget.result.structuredOutput?.jsonBodyValue != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.result.structuredOutput?.jsonBodyValue != null) {
-      _searchController = TextEditingController();
-      _searchNavigator = JsonTreeSearchNavigator();
+    _searchController = TextEditingController();
+    _searchNavigator = JsonTreeSearchNavigator();
+    _hoveredPathNotifier = ValueNotifier<String?>(null);
+  }
+
+  @override
+  void didUpdateWidget(StructuredOutputView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.result.originalInput != widget.result.originalInput) {
+      _searchController.clear();
+      _searchQuery = '';
+      _matchCount = null;
     }
   }
 
   @override
   void dispose() {
-    _searchController?.dispose();
-    _searchNavigator?.dispose();
+    _hoverClearTimer?.cancel();
+    _searchController.dispose();
+    _searchNavigator.dispose();
+    _hoveredPathNotifier.dispose();
     super.dispose();
+  }
+
+  void _schedulePathClear() {
+    _hoverClearTimer?.cancel();
+    _hoverClearTimer = Timer(_hoverClearDelay, () {
+      _hoveredPathNotifier.value = null;
+    });
+  }
+
+  void _cancelPathClear() {
+    _hoverClearTimer?.cancel();
+  }
+
+  Future<void> _copyPath(String path) async {
+    await Clipboard.setData(ClipboardData(text: path));
+    if (!mounted) {
+      return;
+    }
+    showCopyFeedback(context, CopyFeedbackType.path);
   }
 
   void _onSearchChanged(String query, JsonTreeSearchResult? result) {
@@ -65,7 +105,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final structured = widget.result.structuredOutput!;
-    final hasJsonSearch = _searchController != null;
+    final hasJsonSearch = _hasJsonSearch;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -92,7 +132,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               tooltip: 'Clear search',
-                              onPressed: _searchController!.clear,
+                              onPressed: _searchController.clear,
                               icon: const Icon(Icons.clear, size: 16),
                             )
                           : null,
@@ -105,7 +145,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                 if (_matchCount != null) ...[
                   const SizedBox(width: 8),
                   ListenableBuilder(
-                    listenable: _searchNavigator!,
+                    listenable: _searchNavigator,
                     builder: (context, _) {
                       if (_matchCount == 0) {
                         return Text(
@@ -120,14 +160,14 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            '${_searchNavigator!.activeMatchNumber}/${_searchNavigator!.matchCount}',
+                            '${_searchNavigator.activeMatchNumber}/${_searchNavigator.matchCount}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.primary,
                             ),
                           ),
                           IconButton(
                             tooltip: 'Previous match',
-                            onPressed: _searchNavigator!.goToPrevious,
+                            onPressed: _searchNavigator.goToPrevious,
                             icon: const Icon(Icons.keyboard_arrow_up, size: 18),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -138,7 +178,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                           ),
                           IconButton(
                             tooltip: 'Next match',
-                            onPressed: _searchNavigator!.goToNext,
+                            onPressed: _searchNavigator.goToNext,
                             icon: const Icon(Icons.keyboard_arrow_down, size: 18),
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
@@ -187,6 +227,41 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
   }
 
   Widget _buildStructuredContent(JugaadStructuredOutput structured) {
+    final isCurlOutput = widget.result.detectedFormat == DetectedFormat.curl;
+
+    if (isCurlOutput) {
+      final hasJsonBody = structured.jsonBodyValue != null;
+
+      return MouseRegion(
+        onExit: (_) => _schedulePathClear(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: _StructuredSectionsList(
+                  sections: structured.sections,
+                  searchController: _searchController,
+                  searchNavigator: _searchNavigator,
+                  onSearchChanged: _onSearchChanged,
+                  jsonBodyShrinkWrap: true,
+                  detachJsonPathFooter: hasJsonBody,
+                  hoveredPathNotifier: _hoveredPathNotifier,
+                ),
+              ),
+            ),
+            if (hasJsonBody)
+              JsonTreePathFooter(
+                hoveredPath: _hoveredPathNotifier,
+                onHover: _cancelPathClear,
+                onCopyPath: _copyPath,
+              ),
+          ],
+        ),
+      );
+    }
+
     JugaadOutputSection? jsonBodySection;
     final preamble = <JugaadOutputSection>[];
 
@@ -202,7 +277,7 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
       return _StructuredJsonBodyLayout(
         preamble: preamble,
         bodySection: jsonBodySection,
-        searchController: _searchController!,
+        searchController: _searchController,
         searchNavigator: _searchNavigator,
         onSearchChanged: _onSearchChanged,
       );
@@ -295,12 +370,18 @@ class _StructuredSectionsList extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
+    this.jsonBodyShrinkWrap = false,
+    this.detachJsonPathFooter = false,
+    this.hoveredPathNotifier,
   });
 
   final List<JugaadOutputSection> sections;
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
+  final bool jsonBodyShrinkWrap;
+  final bool detachJsonPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
 
   @override
   Widget build(BuildContext context) {
@@ -314,6 +395,9 @@ class _StructuredSectionsList extends StatelessWidget {
             searchController: searchController,
             searchNavigator: searchNavigator,
             onSearchChanged: onSearchChanged,
+            jsonBodyShrinkWrap: jsonBodyShrinkWrap,
+            detachJsonPathFooter: detachJsonPathFooter,
+            hoveredPathNotifier: hoveredPathNotifier,
           ),
         ],
       ],
@@ -327,12 +411,18 @@ class _StructuredSectionView extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
+    this.jsonBodyShrinkWrap = false,
+    this.detachJsonPathFooter = false,
+    this.hoveredPathNotifier,
   });
 
   final JugaadOutputSection section;
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
+  final bool jsonBodyShrinkWrap;
+  final bool detachJsonPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +447,9 @@ class _StructuredSectionView extends StatelessWidget {
               searchController: searchController,
               searchNavigator: searchNavigator,
               onSearchChanged: onSearchChanged,
+              jsonShrinkWrap: jsonBodyShrinkWrap,
+              detachPathFooter: detachJsonPathFooter,
+              hoveredPathNotifier: hoveredPathNotifier,
             ),
           JugaadSectionType.xmlDocument => _MonospaceText(text: section.text!),
         },
@@ -561,18 +654,35 @@ class _BodyContentView extends StatelessWidget {
     this.searchController,
     this.searchNavigator,
     this.onSearchChanged,
+    this.jsonShrinkWrap = false,
+    this.detachPathFooter = false,
+    this.hoveredPathNotifier,
   });
 
   final JugaadBodyContent body;
   final TextEditingController? searchController;
   final JsonTreeSearchNavigator? searchNavigator;
   final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
+  final bool jsonShrinkWrap;
+  final bool detachPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
 
   @override
   Widget build(BuildContext context) {
     if (body.isJson) {
-      // Fallback for scroll-only layouts; JSON body views use
-      // [_StructuredJsonBodyLayout] so the path footer stays visible.
+      if (jsonShrinkWrap) {
+        return JsonTreeView(
+          rootValue: body.jsonValue,
+          searchController: searchController!,
+          searchNavigator: searchNavigator,
+          onSearchChanged: onSearchChanged,
+          shrinkWrap: true,
+          showPathFooter: !detachPathFooter,
+          detachPathFooter: detachPathFooter,
+          hoveredPathNotifier: hoveredPathNotifier,
+        );
+      }
+
       return SizedBox(
         height: 280,
         child: JsonTreeView(

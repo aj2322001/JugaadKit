@@ -16,6 +16,18 @@ abstract final class ProcessingModeSuggestions {
     if (JugaadValidator.looksLikeHttpResponse(trimmed)) {
       suggestions.add(ProcessingMode.httpResponse);
     }
+    if (JugaadValidator.looksLikeAuthorization(trimmed)) {
+      suggestions.add(ProcessingMode.authorization);
+    }
+    if (JugaadValidator.looksLikeCookie(trimmed)) {
+      suggestions.add(ProcessingMode.cookie);
+    }
+    if (JugaadValidator.looksLikeMultipart(trimmed)) {
+      suggestions.add(ProcessingMode.multipart);
+    }
+    if (JugaadValidator.looksLikeHttpError(trimmed)) {
+      suggestions.add(ProcessingMode.httpError);
+    }
     if (JugaadValidator.tryParseJson(trimmed) != null ||
         JugaadValidator.looksLikeJsonCandidate(trimmed) ||
         JugaadValidator.looksLikeEscapedJson(trimmed)) {

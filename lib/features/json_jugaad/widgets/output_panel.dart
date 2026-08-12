@@ -42,11 +42,16 @@ class OutputPanel extends StatelessWidget {
           ),
         JsonJugaadStatus.success when result != null && result!.isJsonOutput =>
           _JsonOutputExplorer(
+            key: ValueKey(result!.originalInput),
             result: result!,
           ),
         JsonJugaadStatus.success when result != null && result!.hasStructuredOutput =>
-          StructuredOutputView(result: result!),
+          StructuredOutputView(
+            key: ValueKey(result!.originalInput),
+            result: result!,
+          ),
         JsonJugaadStatus.success when result != null => _TextOutputView(
+            key: ValueKey(result!.originalInput),
             result: result!,
           ),
         JsonJugaadStatus.error => _OutputShell(
@@ -91,7 +96,7 @@ class _OutputShell extends StatelessWidget {
 }
 
 class _JsonOutputExplorer extends StatefulWidget {
-  const _JsonOutputExplorer({required this.result});
+  const _JsonOutputExplorer({super.key, required this.result});
 
   final JsonJugaadResult result;
 
@@ -269,7 +274,7 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
 }
 
 class _TextOutputView extends StatelessWidget {
-  const _TextOutputView({required this.result});
+  const _TextOutputView({super.key, required this.result});
 
   final JsonJugaadResult result;
 

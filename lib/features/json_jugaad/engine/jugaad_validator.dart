@@ -219,7 +219,10 @@ abstract final class JugaadValidator {
   }
 
   static bool looksLikeHttpHeaders(String input) {
-    if (looksLikeHttpResponse(input) || looksLikeCurl(input)) {
+    if (looksLikeHttpResponse(input) ||
+        looksLikeCurl(input) ||
+        looksLikeCookie(input) ||
+        looksLikeAuthorization(input)) {
       return false;
     }
 
@@ -346,5 +349,81 @@ abstract final class JugaadValidator {
     }
 
     return trimmed.contains('</') || trimmed.contains('/>');
+  }
+
+  static bool looksLikeCookie(String input) {
+    final trimmed = input.trim();
+    if (looksLikeHttpResponse(trimmed) ||
+        looksLikeCurl(trimmed) ||
+        looksLikeAuthorization(trimmed) ||
+        looksLikeMultipart(trimmed)) {
+      return false;
+    }
+
+    if (RegExp(r'^(Cookie|Set-Cookie)\s*:', caseSensitive: false).hasMatch(trimmed)) {
+      return true;
+    }
+
+    return RegExp(
+      r"^[^=;\s]+=[^;]+;\s*(Path|Domain|Expires|Max-Age|Secure|HttpOnly|SameSite)\b",
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+  }
+
+  static bool looksLikeAuthorization(String input) {
+    final trimmed = input.trim();
+    if (trimmed.contains('\n')) {
+      return false;
+    }
+
+    if (RegExp(r'^Authorization\s*:\s*\S+', caseSensitive: false).hasMatch(trimmed)) {
+      return true;
+    }
+
+    return RegExp(
+      r'^(Bearer|Basic|Digest)\s+\S+\s*$',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+  }
+
+  static bool looksLikeMultipart(String input) {
+    final trimmed = input.trim();
+    if (looksLikeHttpResponse(trimmed) || looksLikeCurl(trimmed)) {
+      return false;
+    }
+
+    final firstLine = trimmed.split(RegExp(r'\r?\n')).first.trim();
+    if (!firstLine.startsWith('--') || firstLine.length < 3) {
+      return false;
+    }
+
+    return RegExp(
+      r'Content-Disposition:\s*form-data',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+  }
+
+  static bool looksLikeHttpError(String input) {
+    if (looksLikeHttpResponse(input) ||
+        looksLikeMultipart(input) ||
+        looksLikeCurl(input)) {
+      return false;
+    }
+
+    final trimmed = input.trim();
+    if (RegExp(
+      r'DioException\b.*status code\s+[45]\d{2}',
+      caseSensitive: false,
+      dotAll: true,
+    ).hasMatch(trimmed)) {
+      return true;
+    }
+
+    final firstLine = trimmed.split(RegExp(r'\r?\n')).first.trim();
+    if (RegExp(r'^HTTP\s+[45]\d{2}\b', caseSensitive: false).hasMatch(firstLine)) {
+      return true;
+    }
+
+    return false;
   }
 }

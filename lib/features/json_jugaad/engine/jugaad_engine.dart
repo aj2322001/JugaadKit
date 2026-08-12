@@ -7,18 +7,22 @@ import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
 import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/models/transformation_step.dart';
 
+import 'authorization_codec.dart';
 import 'base64_codec.dart';
 import 'confidence.dart';
+import 'cookie_codec.dart';
 import 'csv_codec.dart';
 import 'curl_codec.dart';
 import 'detected_format.dart';
 import 'format_codecs.dart';
 import 'hex_codec.dart';
 import 'html_entity_codec.dart';
+import 'http_error_codec.dart';
 import 'http_headers_codec.dart';
 import 'http_response_codec.dart';
 import 'jwt_codec.dart';
 import 'jugaad_validator.dart';
+import 'multipart_codec.dart';
 import 'processing_mode_suggestions.dart';
 import 'structured_output_builder.dart';
 import 'text_preview.dart';
@@ -121,6 +125,27 @@ class JugaadEngine {
     );
     if (earlyResult != null) {
       return earlyResult;
+    }
+
+    final authorization = AuthorizationCodec.tryParse(current);
+    if (authorization != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedAuthorization,
+          description: 'Parsed Authorization header',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: AuthorizationCodec.format(authorization),
+        structured: StructuredOutputBuilder.fromAuthorization(authorization),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.authorization,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
     }
 
     final jwt = JwtCodec.tryDecode(current);
@@ -408,6 +433,38 @@ class JugaadEngine {
           originalInput: originalInput,
           mode: mode,
         );
+      case ProcessingMode.cookie:
+        return _processManualCookie(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.authorization:
+        return _processManualAuthorization(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.multipart:
+        return _processManualMultipart(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
+      case ProcessingMode.httpError:
+        return _processManualHttpError(
+          current: current,
+          steps: steps,
+          transformCount: transformCount,
+          originalInput: originalInput,
+          mode: mode,
+        );
       case ProcessingMode.urlDecode:
         return _applyManualCodecTransform(
           current: current,
@@ -661,6 +718,12 @@ class JugaadEngine {
       ProcessingMode.yaml => 'Unable to parse this input as YAML.',
       ProcessingMode.xml => 'Unable to parse this input as XML.',
       ProcessingMode.httpResponse => 'Unable to parse this input as an HTTP response.',
+      ProcessingMode.cookie => 'Unable to parse this input as a cookie value.',
+      ProcessingMode.authorization =>
+        'Unable to parse this input as an Authorization header.',
+      ProcessingMode.multipart =>
+        'Unable to parse this input as a multipart request body.',
+      ProcessingMode.httpError => 'Unable to parse this input as an HTTP error.',
       ProcessingMode.auto => 'Unable to process this input.',
     };
   }
@@ -709,6 +772,27 @@ class JugaadEngine {
         transformCount: transformCount + 1,
         originalInput: originalInput,
         detectedFormat: DetectedFormat.httpResponse,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final multipart = MultipartCodec.tryParse(current);
+    if (multipart != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedMultipart,
+          description: 'Parsed multipart form data',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: MultipartCodec.format(multipart),
+        structured: StructuredOutputBuilder.fromMultipart(multipart),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.multipart,
         confidence: Confidence.high,
         processingMode: processingMode,
         isAutomatic: isAutomatic,
@@ -1001,6 +1085,154 @@ class JugaadEngine {
     );
   }
 
+  JsonJugaadResult _processManualCookie({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final cookie = CookieCodec.tryParse(current);
+    if (cookie == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedCookie,
+        description: 'Parsed cookie values',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: CookieCodec.format(cookie),
+      structured: StructuredOutputBuilder.fromCookie(cookie),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.cookie,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualAuthorization({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final authorization = AuthorizationCodec.tryParse(current);
+    if (authorization == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedAuthorization,
+        description: 'Parsed Authorization header',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: AuthorizationCodec.format(authorization),
+      structured: StructuredOutputBuilder.fromAuthorization(authorization),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.authorization,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualMultipart({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final multipart = MultipartCodec.tryParse(current);
+    if (multipart == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedMultipart,
+        description: 'Parsed multipart form data',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: MultipartCodec.format(multipart),
+      structured: StructuredOutputBuilder.fromMultipart(multipart),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.multipart,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
+  JsonJugaadResult _processManualHttpError({
+    required String current,
+    required List<TransformationStep> steps,
+    required int transformCount,
+    required String originalInput,
+    required ProcessingMode mode,
+  }) {
+    final httpError = HttpErrorCodec.tryParse(current);
+    if (httpError == null) {
+      throw _manualFailure(
+        mode: mode,
+        originalInput: originalInput,
+        steps: steps,
+        lastAttempt: previewText(current),
+      );
+    }
+
+    steps.add(
+      const TransformationStep(
+        type: TransformationType.parsedHttpError,
+        description: 'Parsed HTTP error response',
+      ),
+    );
+
+    return _buildStructuredTextResult(
+      text: HttpErrorCodec.format(httpError),
+      structured: StructuredOutputBuilder.fromHttpError(httpError),
+      steps: steps,
+      transformCount: transformCount + 1,
+      originalInput: originalInput,
+      detectedFormat: DetectedFormat.httpError,
+      confidence: Confidence.high,
+      processingMode: mode,
+      isAutomatic: false,
+    );
+  }
+
   JsonJugaadResult? _tryStructuredDataFormats({
     required String current,
     required List<TransformationStep> steps,
@@ -1009,6 +1241,48 @@ class JugaadEngine {
     required ProcessingMode processingMode,
     required bool isAutomatic,
   }) {
+    final cookie = CookieCodec.tryParse(current);
+    if (cookie != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedCookie,
+          description: 'Parsed cookie values',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: CookieCodec.format(cookie),
+        structured: StructuredOutputBuilder.fromCookie(cookie),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.cookie,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
+    final httpError = HttpErrorCodec.tryParse(current);
+    if (httpError != null) {
+      steps.add(
+        const TransformationStep(
+          type: TransformationType.parsedHttpError,
+          description: 'Parsed HTTP error response',
+        ),
+      );
+      return _buildStructuredTextResult(
+        text: HttpErrorCodec.format(httpError),
+        structured: StructuredOutputBuilder.fromHttpError(httpError),
+        steps: steps,
+        transformCount: transformCount + 1,
+        originalInput: originalInput,
+        detectedFormat: DetectedFormat.httpError,
+        confidence: Confidence.high,
+        processingMode: processingMode,
+        isAutomatic: isAutomatic,
+      );
+    }
+
     final headers = HttpHeadersCodec.tryParse(current);
     if (headers != null) {
       steps.add(
