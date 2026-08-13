@@ -65,7 +65,7 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const ToolHeader(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
                 Expanded(
                   child: LayoutBuilder(
                               builder: (context, constraints) {

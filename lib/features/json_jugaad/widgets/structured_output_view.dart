@@ -11,6 +11,7 @@ import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
 import 'package:jugaadkit/widgets/common/action_button.dart';
 
+import 'json_tree/json_tree_copy_target.dart';
 import 'json_tree_view.dart';
 
 class StructuredOutputView extends StatefulWidget {
@@ -406,12 +407,72 @@ class _HttpStatusContent extends StatelessWidget {
     final theme = Theme.of(context);
     final line = statusText.isEmpty ? '$statusCode' : '$statusCode $statusText';
 
-    return Text(
-      line,
-      style: theme.textTheme.bodyMedium?.copyWith(
-        fontFamily: 'monospace',
-        fontWeight: FontWeight.w600,
-        color: _statusColor(theme.colorScheme),
+    return JsonTreeCopyTarget(
+      text: line,
+      copyType: CopyFeedbackType.value,
+      child: Text(
+        line,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w600,
+          color: _statusColor(theme.colorScheme),
+        ),
+      ),
+    );
+  }
+}
+
+class _CopyableLabeledValueRow extends StatelessWidget {
+  const _CopyableLabeledValueRow({
+    required this.label,
+    required this.value,
+    required this.labelWidth,
+    this.labelMonospace = false,
+  });
+
+  final String label;
+  final String value;
+  final double labelWidth;
+  final bool labelMonospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: labelWidth,
+            child: JsonTreeCopyTarget(
+              text: label,
+              copyType: CopyFeedbackType.key,
+              child: Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                  fontFamily: labelMonospace ? 'monospace' : null,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: JsonTreeCopyTarget(
+              text: value,
+              copyType: CopyFeedbackType.value,
+              child: Text(
+                value,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -424,39 +485,15 @@ class _HeaderRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final header in headers)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 160,
-                  child: Text(
-                    header.key,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    header.value,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          _CopyableLabeledValueRow(
+            label: header.key,
+            value: header.value,
+            labelWidth: 160,
+            labelMonospace: true,
           ),
       ],
     );
@@ -475,28 +512,39 @@ class _MethodUrlContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final baseStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: 'monospace',
+      height: 1.5,
+    );
 
-    return RichText(
-      text: TextSpan(
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontFamily: 'monospace',
-          height: 1.5,
-        ),
-        children: [
-          TextSpan(
-            text: method,
-            style: TextStyle(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        JsonTreeCopyTarget(
+          text: method,
+          copyType: CopyFeedbackType.key,
+          child: Text(
+            method,
+            style: baseStyle?.copyWith(
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.primary,
             ),
           ),
-          const TextSpan(text: ' '),
-          TextSpan(
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: JsonTreeCopyTarget(
             text: url,
-            style: TextStyle(color: theme.colorScheme.onSurface),
+            copyType: CopyFeedbackType.value,
+            child: Text(
+              url,
+              style: baseStyle?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -508,38 +556,14 @@ class _KeyValueRows extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final field in fields)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 88,
-                  child: Text(
-                    field.key,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    field.value,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          _CopyableLabeledValueRow(
+            label: field.key,
+            value: field.value,
+            labelWidth: 88,
           ),
       ],
     );
@@ -598,12 +622,16 @@ class _MonospaceText extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SelectableText(
-      text,
-      style: theme.textTheme.bodySmall?.copyWith(
-        fontFamily: 'monospace',
-        height: 1.5,
-        color: theme.colorScheme.onSurface,
+    return JsonTreeCopyTarget(
+      text: text,
+      copyType: CopyFeedbackType.value,
+      child: SelectableText(
+        text,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          height: 1.5,
+          color: theme.colorScheme.onSurface,
+        ),
       ),
     );
   }

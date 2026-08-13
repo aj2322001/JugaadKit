@@ -120,7 +120,7 @@ class _ProcessingModeSelectorState extends State<ProcessingModeSelector> {
                 color: theme.colorScheme.surface,
                 surfaceTintColor: theme.colorScheme.surfaceTint,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   side: BorderSide(color: theme.dividerColor),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -273,6 +273,9 @@ class _ProcessingModeSelectorState extends State<ProcessingModeSelector> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               visualDensity: VisualDensity.compact,
               side: BorderSide(color: theme.colorScheme.outline),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
