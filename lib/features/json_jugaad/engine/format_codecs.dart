@@ -44,8 +44,13 @@ abstract final class QueryStringCodec {
       return null;
     }
 
+    var query = input;
+    if (query.startsWith('?')) {
+      query = query.substring(1);
+    }
+
     final values = <String, String>{};
-    for (final pair in input.split('&')) {
+    for (final pair in query.split('&')) {
       final index = pair.indexOf('=');
       if (index <= 0) {
         continue;

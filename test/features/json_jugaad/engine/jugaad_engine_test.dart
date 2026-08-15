@@ -147,6 +147,21 @@ void main() {
       expect(data, isA<Map>());
       expect((data as Map)['id'], 123);
     });
+
+    test('strips leading question mark delimiter from first parameter name', () {
+      const input =
+          '?data=%7B%22name%22%3A%22Archit%22%2C%22age%22%3A25%7D&active=true';
+
+      final result = engine.process(input);
+      final map = result.parsedValue as Map;
+
+      expect(result.detectedFormat, DetectedFormat.queryString);
+      expect(map.containsKey('?data'), isFalse);
+      expect(map['data'], isA<Map>());
+      expect((map['data'] as Map)['name'], 'Archit');
+      expect((map['data'] as Map)['age'], 25);
+      expect(map['active'], isTrue);
+    });
   });
 
   group('NDJSON', () {

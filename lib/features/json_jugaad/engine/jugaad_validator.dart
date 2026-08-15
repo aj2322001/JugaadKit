@@ -331,11 +331,36 @@ abstract final class JugaadValidator {
     final hasFragment = uri.fragment.isNotEmpty;
     final hasMultipleQueryParams = uri.queryParameters.length >= 2;
     final hasDeepPath = uri.pathSegments.length >= 2;
+    final hasInspectableQueryValues = uri.queryParameters.values.any(
+      _queryParameterValueLooksInspectable,
+    );
 
     return hasNonDefaultPort ||
         hasFragment ||
         hasMultipleQueryParams ||
-        hasDeepPath;
+        hasDeepPath ||
+        hasInspectableQueryValues;
+  }
+
+  static bool _queryParameterValueLooksInspectable(String value) {
+    if (looksLikeJwt(value)) {
+      return true;
+    }
+
+    if (looksLikeStandaloneUrl(value)) {
+      return true;
+    }
+
+    if (!value.contains('%')) {
+      return false;
+    }
+
+    try {
+      final decoded = Uri.decodeComponent(value);
+      return looksLikeStandaloneUrl(decoded);
+    } on FormatException {
+      return false;
+    }
   }
 
   static bool looksLikeYaml(String input) {

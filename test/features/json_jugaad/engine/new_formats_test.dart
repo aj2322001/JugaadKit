@@ -128,6 +128,54 @@ X-Trace-Id: def
       expect(result.detectedFormat, DetectedFormat.curl);
       expect(result.detectedFormat, isNot(DetectedFormat.url));
     });
+
+    test('auto detects URL with JWT-looking query parameter', () {
+      const input =
+          'https://example.com/auth?token=eyJhbGciOiJIUzI1NiJ9.test.test';
+
+      final result = engine.processAuto(input);
+      expect(result.detectedFormat, DetectedFormat.url);
+      expect(result.confidence, Confidence.high);
+      expect(result.formattedJson, contains('token = eyJhbGciOiJIUzI1NiJ9.test.test'));
+    });
+
+    test('auto detects URL with encoded redirect query parameter', () {
+      const input =
+          'https://example.com/login?redirect=https%3A%2F%2Fexample.com';
+
+      final result = engine.processAuto(input);
+      expect(result.detectedFormat, DetectedFormat.url);
+      expect(result.confidence, Confidence.high);
+      expect(result.formattedJson, contains('redirect = https://example.com'));
+    });
+
+    test('auto detects URL with multiple normal query parameters', () {
+      const input = 'https://api.example.com/users?id=123&token=abc123';
+
+      final result = engine.processAuto(input);
+      expect(result.detectedFormat, DetectedFormat.url);
+      expect(result.confidence, Confidence.high);
+      expect(result.formattedJson, contains('id = 123'));
+      expect(result.formattedJson, contains('token = abc123'));
+    });
+
+    test('auto detects URL with token-like jwt query parameter name', () {
+      const input =
+          'https://example.com/path?jwt=eyJhbGciOiJIUzI1NiJ9.test.test';
+
+      final result = engine.processAuto(input);
+      expect(result.detectedFormat, DetectedFormat.url);
+      expect(result.confidence, Confidence.high);
+    });
+
+    test('standalone JWT is not detected as URL', () {
+      const input =
+          'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature';
+
+      final result = engine.processAuto(input);
+      expect(result.detectedFormat, DetectedFormat.jwt);
+      expect(result.detectedFormat, isNot(DetectedFormat.url));
+    });
   });
 
   group('CSV', () {
