@@ -2,6 +2,7 @@ import '../models/jugaad_body_content.dart';
 import '../models/jugaad_structured_output.dart';
 import 'authorization_codec.dart';
 import 'body_content_classifier.dart';
+import 'json_body_processor.dart';
 import 'cookie_codec.dart';
 import 'curl_codec.dart';
 import 'http_error_codec.dart';
@@ -34,7 +35,12 @@ abstract final class StructuredOutputBuilder {
       JugaadOutputSection(
         title: 'Body',
         type: JugaadSectionType.body,
-        body: BodyContentClassifier.classify(response.body),
+        body: BodyContentClassifier.classify(
+          response.body,
+          contentType: JsonBodyProcessor.contentTypeFromHeaders(
+            response.headers,
+          ),
+        ),
       ),
     );
 
@@ -67,7 +73,12 @@ abstract final class StructuredOutputBuilder {
         JugaadOutputSection(
           title: 'Body',
           type: JugaadSectionType.body,
-          body: BodyContentClassifier.classify(body),
+          body: BodyContentClassifier.classify(
+            body,
+            contentType: JsonBodyProcessor.contentTypeFromHeaders(
+              request.headers,
+            ),
+          ),
         ),
       );
     }

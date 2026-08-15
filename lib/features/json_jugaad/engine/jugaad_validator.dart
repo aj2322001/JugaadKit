@@ -28,6 +28,23 @@ abstract final class JugaadValidator {
     return (first == '{' && last == '}') || (first == '[' && last == ']');
   }
 
+  /// True when input appears intended as a single JSON value, including
+  /// truncated documents missing closing braces/brackets.
+  static bool looksLikeJsonDocument(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+
+    final first = trimmed[0];
+    return first == '{' || first == '[';
+  }
+
+  /// Guard for JSON repair and whole-document handling (not nested extraction).
+  static bool looksLikeJsonRepairCandidate(String input) {
+    return looksLikeJsonCandidate(input) || looksLikeJsonDocument(input);
+  }
+
   static bool isJsonStringLiteral(String input) {
     return input.length >= 2 && input.startsWith('"') && input.endsWith('"');
   }

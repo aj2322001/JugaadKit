@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_builder.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_flatten.dart';
@@ -12,6 +13,7 @@ import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.
 
 import 'json_tree/json_bracket_row.dart';
 import 'json_tree/json_expandable_row.dart';
+import 'json_tree/json_open_bracket_row.dart';
 import 'json_tree/json_tree_controls.dart';
 import 'json_tree/json_value_row.dart';
 
@@ -33,6 +35,7 @@ class JsonTreeView extends StatefulWidget {
     this.hoveredPathNotifier,
     this.detachPathFooter = false,
     this.reportsSearchMatches = true,
+    this.repairHighlights = JsonRepairHighlightSet.empty,
   });
 
   final Object? rootValue;
@@ -45,6 +48,7 @@ class JsonTreeView extends StatefulWidget {
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool detachPathFooter;
   final bool reportsSearchMatches;
+  final JsonRepairHighlightSet repairHighlights;
 
   JsonTreeSearchSession? get _session => searchSession ?? searchNavigator;
 
@@ -468,14 +472,28 @@ class _JsonTreeViewState extends State<JsonTreeView> {
         final rowKey = isActiveSearchMatch
             ? (_scrollTargetKey ?? ValueKey(node.path))
             : ValueKey(
-                row.isCloseBracket ? '${node.path}::close' : node.path,
+                row.isOpenBracket
+                    ? '${node.path}::open'
+                    : row.isCloseBracket
+                        ? '${node.path}::close'
+                        : node.path,
               );
+
+        if (row.isOpenBracket) {
+          return JsonOpenBracketRow(
+            key: rowKey,
+            node: node,
+            onHover: _onNodeHover,
+            repairHighlights: widget.repairHighlights,
+          );
+        }
 
         if (row.isCloseBracket) {
           return JsonBracketRow(
             key: rowKey,
             node: node,
             onHover: _onNodeHover,
+            repairHighlights: widget.repairHighlights,
           );
         }
 
@@ -490,6 +508,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
             isActiveSearchMatch: isActiveSearchMatch,
             onToggle: _toggleExpansion,
             onHover: _onNodeHover,
+            repairHighlights: widget.repairHighlights,
           );
         }
 
@@ -501,6 +520,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
           hoveredPath: _hoveredPath,
           isActiveSearchMatch: isActiveSearchMatch,
           onHover: _onNodeHover,
+          repairHighlights: widget.repairHighlights,
         );
       },
     );

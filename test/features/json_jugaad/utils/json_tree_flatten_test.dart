@@ -18,9 +18,11 @@ void main() {
         forceExpandedPaths: const {},
       );
 
-      expect(rows, hasLength(1));
-      expect(rows.single.node.path, r'$.user');
-      expect(rows.single.isExpanded, isFalse);
+      expect(rows, hasLength(3));
+      expect(rows[0].isOpenBracket, isTrue);
+      expect(rows[1].node.path, r'$.user');
+      expect(rows[1].isExpanded, isFalse);
+      expect(rows[2].isCloseBracket, isTrue);
     });
 
     test('includes nested children when expanded', () {

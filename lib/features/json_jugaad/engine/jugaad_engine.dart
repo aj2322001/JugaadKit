@@ -4,6 +4,7 @@ import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.d
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/models/transformation_step.dart';
 
@@ -36,12 +37,14 @@ class _TransformCandidate {
     required this.step,
     required this.format,
     required this.confidence,
+    this.repairHighlights = const [],
   });
 
   final String output;
   final TransformationStep step;
   final DetectedFormat format;
   final Confidence confidence;
+  final List<JsonRepairHighlight> repairHighlights;
 }
 
 /// Deterministic client-side data inspection and transformation engine.
@@ -238,6 +241,8 @@ class JugaadEngine {
       return structuredResult;
     }
 
+    final repairHighlights = <JsonRepairHighlight>[];
+
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
       final parsed = JugaadValidator.tryParseJson(current);
       if (parsed != null) {
@@ -257,11 +262,16 @@ class JugaadEngine {
             hadPriorTransforms: transformCount > 0,
             processingMode: processingMode,
             isAutomatic: isAutomatic,
+            repairHighlights: repairHighlights,
           );
         }
 
         detectedFormat = _resolveDetectedFormat(detectedFormat, steps);
-        confidence = Confidence.high;
+        confidence = _resolveFinalJsonConfidence(
+          steps: steps,
+          repairHighlights: repairHighlights,
+          current: confidence,
+        );
         return _buildJsonResult(
           value: parsed.value,
           steps: steps,
@@ -273,6 +283,7 @@ class JugaadEngine {
           hadPriorTransforms: transformCount > 0,
           processingMode: processingMode,
           isAutomatic: isAutomatic,
+          repairHighlights: repairHighlights,
         );
       }
 
@@ -281,9 +292,12 @@ class JugaadEngine {
         break;
       }
 
-      steps.add(candidate.step);
+      if (candidate.step.type != TransformationType.brokenJsonRepaired) {
+        steps.add(candidate.step);
+      }
       current = candidate.output;
       transformCount++;
+      repairHighlights.addAll(candidate.repairHighlights);
       if (detectedFormat == DetectedFormat.unknown) {
         detectedFormat = candidate.format;
         confidence = candidate.confidence;
@@ -633,6 +647,7 @@ class JugaadEngine {
     var working = current;
     var count = transformCount;
     var detectedFormat = primaryFormat;
+    final repairHighlights = <JsonRepairHighlight>[];
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
       final parsed = JugaadValidator.tryParseJson(working);
@@ -649,6 +664,7 @@ class JugaadEngine {
             hadPriorTransforms: true,
             processingMode: processingMode,
             isAutomatic: false,
+            repairHighlights: repairHighlights,
           );
         }
 
@@ -658,10 +674,15 @@ class JugaadEngine {
           transformCount: count + 1,
           originalInput: originalInput,
           detectedFormat: detectedFormat,
-          confidence: Confidence.high,
+          confidence: _resolveFinalJsonConfidence(
+            steps: steps,
+            repairHighlights: repairHighlights,
+            current: Confidence.high,
+          ),
           hadPriorTransforms: count > 0,
           processingMode: processingMode,
           isAutomatic: false,
+          repairHighlights: repairHighlights,
         );
       }
 
@@ -671,9 +692,12 @@ class JugaadEngine {
         break;
       }
 
-      steps.add(candidate.step);
+      if (candidate.step.type != TransformationType.brokenJsonRepaired) {
+        steps.add(candidate.step);
+      }
       working = candidate.output;
       count++;
+      repairHighlights.addAll(candidate.repairHighlights);
     }
 
     throw _manualFailure(
@@ -738,17 +762,19 @@ class JugaadEngine {
   }) {
     final curl = CurlCodec.tryParse(current);
     if (curl != null) {
+      final stepsBefore = steps.length;
       steps.add(
         const TransformationStep(
           type: TransformationType.parsedCurl,
           description: 'Parsed cURL command into readable HTTP request',
         ),
       );
+      final structured = StructuredOutputBuilder.fromCurl(curl);
       return _buildStructuredTextResult(
         text: CurlCodec.format(curl),
-        structured: StructuredOutputBuilder.fromCurl(curl),
+        structured: structured,
         steps: steps,
-        transformCount: transformCount + 1,
+        transformCount: transformCount + (steps.length - stepsBefore),
         originalInput: originalInput,
         detectedFormat: DetectedFormat.curl,
         confidence: Confidence.high,
@@ -759,17 +785,19 @@ class JugaadEngine {
 
     final httpResponse = HttpResponseCodec.tryParse(current);
     if (httpResponse != null) {
+      final stepsBefore = steps.length;
       steps.add(
         const TransformationStep(
           type: TransformationType.parsedHttpResponse,
           description: 'Parsed HTTP response into readable format',
         ),
       );
+      final structured = StructuredOutputBuilder.fromHttpResponse(httpResponse);
       return _buildStructuredTextResult(
         text: HttpResponseCodec.format(httpResponse),
-        structured: StructuredOutputBuilder.fromHttpResponse(httpResponse),
+        structured: structured,
         steps: steps,
-        transformCount: transformCount + 1,
+        transformCount: transformCount + (steps.length - stepsBefore),
         originalInput: originalInput,
         detectedFormat: DetectedFormat.httpResponse,
         confidence: Confidence.high,
@@ -843,6 +871,7 @@ class JugaadEngine {
       );
     }
 
+    final stepsBefore = steps.length;
     steps.add(
       const TransformationStep(
         type: TransformationType.parsedCurl,
@@ -850,11 +879,13 @@ class JugaadEngine {
       ),
     );
 
+    final structured = StructuredOutputBuilder.fromCurl(curl);
+
     return _buildStructuredTextResult(
       text: CurlCodec.format(curl),
-      structured: StructuredOutputBuilder.fromCurl(curl),
+      structured: structured,
       steps: steps,
-      transformCount: transformCount + 1,
+      transformCount: transformCount + (steps.length - stepsBefore),
       originalInput: originalInput,
       detectedFormat: DetectedFormat.curl,
       confidence: Confidence.high,
@@ -1065,6 +1096,7 @@ class JugaadEngine {
       );
     }
 
+    final stepsBefore = steps.length;
     steps.add(
       const TransformationStep(
         type: TransformationType.parsedHttpResponse,
@@ -1072,11 +1104,13 @@ class JugaadEngine {
       ),
     );
 
+    final structured = StructuredOutputBuilder.fromHttpResponse(response);
+
     return _buildStructuredTextResult(
       text: HttpResponseCodec.format(response),
-      structured: StructuredOutputBuilder.fromHttpResponse(response),
+      structured: structured,
       steps: steps,
-      transformCount: transformCount + 1,
+      transformCount: transformCount + (steps.length - stepsBefore),
       originalInput: originalInput,
       detectedFormat: DetectedFormat.httpResponse,
       confidence: Confidence.high,
@@ -1417,6 +1451,7 @@ class JugaadEngine {
     required bool hadPriorTransforms,
     required ProcessingMode processingMode,
     required bool isAutomatic,
+    List<JsonRepairHighlight> repairHighlights = const [],
   }) {
     if (!steps.any((step) => step.type == TransformationType.parsedJson)) {
       steps.add(
@@ -1437,10 +1472,18 @@ class JugaadEngine {
       confidence: confidence,
       processingMode: processingMode,
       isAutomatic: isAutomatic,
+      repairHighlights: repairHighlights,
     );
   }
 
   _TransformCandidate? _nextTransform(String input) {
+    if (JugaadValidator.looksLikeJsonRepairCandidate(input)) {
+      final repair = _tryLooseJsonRepair(input);
+      if (repair != null) {
+        return repair;
+      }
+    }
+
     final candidates = <_TransformCandidate?>[
       _tryJsonp(input),
       _tryExtractFromText(input),
@@ -1661,16 +1704,42 @@ class JugaadEngine {
     if (repair == null) {
       return null;
     }
+
+    final stepType = switch (repair.kind) {
+      JsonRepairKind.comment => TransformationType.commentRemoved,
+      JsonRepairKind.trailingComma => TransformationType.trailingCommaRemoved,
+      _ => TransformationType.brokenJsonRepaired,
+    };
+
     return _TransformCandidate(
       output: repair.repaired,
       step: TransformationStep(
-        type: repair.description.contains('comment')
-            ? TransformationType.commentRemoved
-            : TransformationType.trailingCommaRemoved,
+        type: stepType,
         description: repair.description,
       ),
       format: DetectedFormat.looseJson,
       confidence: Confidence.medium,
+      repairHighlights: repair.highlights,
+    );
+  }
+
+  Confidence _resolveFinalJsonConfidence({
+    required List<TransformationStep> steps,
+    required List<JsonRepairHighlight> repairHighlights,
+    required Confidence current,
+  }) {
+    if (_usedJsonRepair(steps) || repairHighlights.isNotEmpty) {
+      return Confidence.medium;
+    }
+    return current == Confidence.none ? Confidence.high : current;
+  }
+
+  bool _usedJsonRepair(List<TransformationStep> steps) {
+    return steps.any(
+      (step) =>
+          step.type == TransformationType.commentRemoved ||
+          step.type == TransformationType.trailingCommaRemoved ||
+          step.type == TransformationType.brokenJsonRepaired,
     );
   }
 
@@ -1715,6 +1784,7 @@ class JugaadEngine {
           return DetectedFormat.wrapper;
         case TransformationType.trailingCommaRemoved:
         case TransformationType.commentRemoved:
+        case TransformationType.brokenJsonRepaired:
           return DetectedFormat.looseJson;
         default:
           continue;

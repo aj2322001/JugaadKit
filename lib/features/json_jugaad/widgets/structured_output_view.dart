@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_body_content.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
@@ -598,6 +599,7 @@ class _BodyContentView extends StatelessWidget {
         searchNavigator: reportsSearchMatches ? searchNavigator : null,
         onSearchChanged: reportsSearchMatches ? onSearchChanged : null,
         reportsSearchMatches: reportsSearchMatches,
+        repairHighlights: JsonRepairHighlightSet.from(body.repairHighlights),
         shrinkWrap: true,
         showPathFooter: !detachPathFooter,
         detachPathFooter: detachPathFooter,

@@ -5,6 +5,7 @@ import '../engine/detected_format.dart';
 import '../engine/detection_summary.dart';
 import 'jugaad_output_type.dart';
 import 'jugaad_structured_output.dart';
+import 'json_repair_highlight.dart';
 import 'processing_mode.dart';
 import 'transformation_step.dart';
 
@@ -22,6 +23,7 @@ class JsonJugaadResult {
     required this.detectionSummary,
     required this.outputType,
     this.structuredOutput,
+    this.repairHighlights = const [],
   });
 
   final Object? parsedValue;
@@ -36,6 +38,26 @@ class JsonJugaadResult {
   final String detectionSummary;
   final JugaadOutputType outputType;
   final JugaadStructuredOutput? structuredOutput;
+  final List<JsonRepairHighlight> repairHighlights;
+
+  JsonRepairHighlightSet get repairHighlightSet =>
+      JsonRepairHighlightSet.from(repairHighlights);
+
+  bool get hasRepairHighlights {
+    if (repairHighlights.isNotEmpty) {
+      return true;
+    }
+    final structured = structuredOutput;
+    if (structured == null) {
+      return false;
+    }
+    for (final section in structured.sections) {
+      if (section.body?.repairHighlights.isNotEmpty ?? false) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   bool get isJsonOutput => outputType == JugaadOutputType.json;
 
@@ -50,6 +72,7 @@ class JsonJugaadResult {
     required Confidence confidence,
     required ProcessingMode processingMode,
     required bool isAutomatic,
+    List<JsonRepairHighlight> repairHighlights = const [],
   }) {
     final summary = DetectionSummary.build(
       steps: steps,
@@ -70,6 +93,7 @@ class JsonJugaadResult {
       isAutomatic: isAutomatic,
       detectionSummary: summary,
       outputType: JugaadOutputType.json,
+      repairHighlights: List.unmodifiable(repairHighlights),
     );
   }
 

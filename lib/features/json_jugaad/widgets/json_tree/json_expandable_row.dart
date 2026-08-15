@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/theme/json_syntax_colors.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_copy_util.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
 
 import 'highlighted_text.dart';
+import 'json_repair_tooltip.dart';
 import 'json_tree_controls.dart';
 import 'json_tree_copy_target.dart';
 
@@ -25,6 +27,7 @@ class JsonExpandableRow extends StatelessWidget {
     this.isActiveSearchMatch = false,
     required this.onToggle,
     required this.onHover,
+    this.repairHighlights = JsonRepairHighlightSet.empty,
   });
 
   final JsonTreeNode node;
@@ -35,6 +38,7 @@ class JsonExpandableRow extends StatelessWidget {
   final bool isActiveSearchMatch;
   final JsonTreeExpansionCallback onToggle;
   final JsonTreeHoverCallback onHover;
+  final JsonRepairHighlightSet repairHighlights;
 
   Future<void> _copyPath(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: node.path));
@@ -50,17 +54,23 @@ class JsonExpandableRow extends StatelessWidget {
     final colors = JsonSyntaxColors.of(context);
     final match = searchResult?.matchFor(node.path);
     final indent = node.depth * 16.0;
+    final highlightBracket =
+        repairHighlights.shouldHighlightOpeningBracket(node.path);
     final suffix = isExpanded ? ' ${node.openingBracket}' : node.countSuffix;
     final keyStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
       fontWeight: FontWeight.w600,
-      color: colors.key,
+      color: repairHighlights.shouldHighlightKey(node.path)
+          ? jsonRepairHighlightColor
+          : colors.key,
     );
     final suffixStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 12,
-      color: colors.structure.withValues(alpha: 0.7),
+      color: highlightBracket
+          ? jsonRepairHighlightColor
+          : colors.structure.withValues(alpha: 0.7),
     );
 
     return ValueListenableBuilder<String?>(
@@ -101,16 +111,21 @@ class JsonExpandableRow extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (node.key != null)
-                              JsonTreeCopyTarget(
-                                text: node.key!,
-                                copyType: CopyFeedbackType.key,
-                                child: HighlightedText(
-                                  text: node.headerLabel,
-                                  query: match?.keyMatches == true
-                                      ? searchQuery
-                                      : null,
-                                  highlightColor: colors.searchHighlight,
-                                  style: keyStyle,
+                              JsonRepairTooltip(
+                                highlight: repairHighlights.highlightForKey(
+                                  node.path,
+                                ),
+                                child: JsonTreeCopyTarget(
+                                  text: node.key!,
+                                  copyType: CopyFeedbackType.key,
+                                  child: HighlightedText(
+                                    text: node.headerLabel,
+                                    query: match?.keyMatches == true
+                                        ? searchQuery
+                                        : null,
+                                    highlightColor: colors.searchHighlight,
+                                    style: keyStyle,
+                                  ),
                                 ),
                               )
                             else
@@ -122,10 +137,17 @@ class JsonExpandableRow extends StatelessWidget {
                                 highlightColor: colors.searchHighlight,
                                 style: keyStyle,
                               ),
-                            JsonTreeCopyTarget(
-                              text: JsonCopyUtil.valueForClipboard(node),
-                              copyType: CopyFeedbackType.value,
-                              child: Text(suffix, style: suffixStyle),
+                            JsonRepairTooltip(
+                              highlight: highlightBracket
+                                  ? repairHighlights.highlightForStructure(
+                                      node.path,
+                                    )
+                                  : null,
+                              child: JsonTreeCopyTarget(
+                                text: JsonCopyUtil.valueForClipboard(node),
+                                copyType: CopyFeedbackType.value,
+                                child: Text(suffix, style: suffixStyle),
+                              ),
                             ),
                           ],
                         ),

@@ -27,6 +27,7 @@ enum TransformationType {
   parsedAuthorization,
   parsedMultipart,
   parsedHttpError,
+  brokenJsonRepaired,
 }
 
 class TransformationStep {

@@ -9,8 +9,8 @@ import 'json_tree_controls.dart';
 
 typedef JsonTreeHoverCallback = void Function(JsonTreeNode node);
 
-class JsonBracketRow extends StatelessWidget {
-  const JsonBracketRow({
+class JsonOpenBracketRow extends StatelessWidget {
+  const JsonOpenBracketRow({
     super.key,
     required this.node,
     required this.onHover,
@@ -24,15 +24,14 @@ class JsonBracketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = JsonSyntaxColors.of(context);
-    final indent = node.depth * 16.0;
     final highlightBracket =
-        repairHighlights.shouldHighlightClosingBracket(node.path);
+        repairHighlights.shouldHighlightOpeningBracket(node.path);
 
     return RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => onHover(node),
         child: Padding(
-          padding: EdgeInsets.only(left: indent),
+          padding: const EdgeInsets.only(left: 0),
           child: Row(
             children: [
               SizedBox(width: JsonTreeLayout.expandLeadingWidth),
@@ -41,7 +40,7 @@ class JsonBracketRow extends StatelessWidget {
                     ? repairHighlights.highlightForStructure(node.path)
                     : null,
                 child: Text(
-                  node.closingBracket,
+                  node.openingBracket,
                   style: TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 13,

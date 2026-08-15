@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'json_body_processor.dart';
 import 'jugaad_validator.dart';
 
 class CurlRequest {
@@ -113,12 +112,12 @@ abstract final class CurlCodec {
     final body = request.body;
     if (body != null && body.trim().isNotEmpty) {
       buffer.writeln('Body:');
-      final trimmed = body.trim();
-      final parsed = JugaadValidator.tryParseJson(trimmed);
-      if (parsed != null) {
-        buffer.writeln(
-          const JsonEncoder.withIndent('  ').convert(parsed.value),
-        );
+      final formatted = JsonBodyProcessor.formatPrettyJson(
+        body,
+        contentType: JsonBodyProcessor.contentTypeFromHeaders(request.headers),
+      );
+      if (formatted != null) {
+        buffer.writeln(formatted);
       } else {
         buffer.writeln(body);
       }

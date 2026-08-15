@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 
 import 'package:jugaadkit/core/utils/app_feedback.dart';
 import 'package:jugaadkit/features/json_jugaad/engine/timestamp_detector.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/theme/json_syntax_colors.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_copy_util.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
 
 import 'highlighted_text.dart';
+import 'json_repair_tooltip.dart';
 import 'json_tree_controls.dart';
 import 'json_tree_copy_target.dart';
 
@@ -23,6 +25,7 @@ class JsonValueRow extends StatelessWidget {
     required this.hoveredPath,
     this.isActiveSearchMatch = false,
     required this.onHover,
+    this.repairHighlights = JsonRepairHighlightSet.empty,
   });
 
   final JsonTreeNode node;
@@ -31,6 +34,7 @@ class JsonValueRow extends StatelessWidget {
   final ValueNotifier<String?> hoveredPath;
   final bool isActiveSearchMatch;
   final JsonTreeHoverCallback onHover;
+  final JsonRepairHighlightSet repairHighlights;
 
   Future<void> _copyPath(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: node.path));
@@ -48,12 +52,16 @@ class JsonValueRow extends StatelessWidget {
     final keyStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
-      color: colors.key,
+      color: repairHighlights.shouldHighlightKey(node.path)
+          ? jsonRepairHighlightColor
+          : colors.key,
     );
     final valueStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
-      color: _valueColor(colors),
+      color: repairHighlights.shouldHighlightValue(node.path)
+          ? jsonRepairHighlightColor
+          : _valueColor(colors),
     );
 
     return ValueListenableBuilder<String?>(
@@ -77,16 +85,21 @@ class JsonValueRow extends StatelessWidget {
                         children: [
                           if (node.key != null) ...[
                             Flexible(
-                              child: JsonTreeCopyTarget(
-                                text: node.key!,
-                                copyType: CopyFeedbackType.key,
-                                child: HighlightedText(
+                              child: JsonRepairTooltip(
+                                highlight: repairHighlights.highlightForKey(
+                                  node.path,
+                                ),
+                                child: JsonTreeCopyTarget(
                                   text: node.key!,
-                                  query: match?.keyMatches == true
-                                      ? searchQuery
-                                      : null,
-                                  highlightColor: colors.searchHighlight,
-                                  style: keyStyle,
+                                  copyType: CopyFeedbackType.key,
+                                  child: HighlightedText(
+                                    text: node.key!,
+                                    query: match?.keyMatches == true
+                                        ? searchQuery
+                                        : null,
+                                    highlightColor: colors.searchHighlight,
+                                    style: keyStyle,
+                                  ),
                                 ),
                               ),
                             ),
@@ -104,16 +117,21 @@ class JsonValueRow extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                JsonTreeCopyTarget(
-                                  text: JsonCopyUtil.valueForClipboard(node),
-                                  copyType: CopyFeedbackType.value,
-                                  child: HighlightedText(
-                                    text: _formattedValue(),
-                                    query: match?.valueMatches == true
-                                        ? searchQuery
-                                        : null,
-                                    highlightColor: colors.searchHighlight,
-                                    style: valueStyle,
+                                JsonRepairTooltip(
+                                  highlight: repairHighlights.highlightForValue(
+                                    node.path,
+                                  ),
+                                  child: JsonTreeCopyTarget(
+                                    text: JsonCopyUtil.valueForClipboard(node),
+                                    copyType: CopyFeedbackType.value,
+                                    child: HighlightedText(
+                                      text: _formattedValue(),
+                                      query: match?.valueMatches == true
+                                          ? searchQuery
+                                          : null,
+                                      highlightColor: colors.searchHighlight,
+                                      style: valueStyle,
+                                    ),
                                   ),
                                 ),
                                 if (_timestampHint != null)

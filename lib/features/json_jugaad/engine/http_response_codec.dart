@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'json_body_processor.dart';
 import 'jugaad_validator.dart';
 
 class HttpResponseData {
@@ -85,11 +84,12 @@ abstract final class HttpResponseCodec {
       return buffer.toString().trimRight();
     }
 
-    final parsed = JugaadValidator.tryParseJson(trimmedBody);
-    if (parsed != null) {
-      buffer.writeln(
-        const JsonEncoder.withIndent('  ').convert(parsed.value),
-      );
+    final formatted = JsonBodyProcessor.formatPrettyJson(
+      response.body,
+      contentType: JsonBodyProcessor.contentTypeFromHeaders(response.headers),
+    );
+    if (formatted != null) {
+      buffer.writeln(formatted);
     } else {
       buffer.writeln(response.body);
     }

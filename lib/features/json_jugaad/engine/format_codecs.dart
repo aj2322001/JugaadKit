@@ -1,57 +1,33 @@
+import '../models/json_repair_highlight.dart';
+import 'json_repair_engine.dart';
 import 'jugaad_validator.dart';
 
 class LooseJsonRepairResult {
   const LooseJsonRepairResult({
     required this.repaired,
     required this.description,
+    required this.highlights,
+    required this.kind,
   });
 
   final String repaired;
   final String description;
+  final List<JsonRepairHighlight> highlights;
+  final JsonRepairKind kind;
 }
 
 abstract final class LooseJsonRepair {
   static LooseJsonRepairResult? tryRepair(String input) {
-    if (JugaadValidator.tryParseJson(input) != null) {
+    final attempt = JsonRepairEngine.tryRepair(input);
+    if (attempt == null) {
       return null;
     }
 
-    if (!JugaadValidator.looksLikeJsonCandidate(input)) {
-      return null;
-    }
-
-    final withoutComments = _removeComments(input);
-    if (withoutComments != input) {
-      if (JugaadValidator.tryParseJson(withoutComments) != null) {
-        return LooseJsonRepairResult(
-          repaired: withoutComments,
-          description: 'JSON comment removed',
-        );
-      }
-    }
-
-    final withoutTrailingComma = _removeTrailingCommas(withoutComments);
-    if (withoutTrailingComma != withoutComments &&
-        JugaadValidator.tryParseJson(withoutTrailingComma) != null) {
-      return LooseJsonRepairResult(
-        repaired: withoutTrailingComma,
-        description: 'Trailing comma removed',
-      );
-    }
-
-    return null;
-  }
-
-  static String _removeComments(String input) {
-    return input
-        .replaceAll(RegExp(r'//.*$', multiLine: true), '')
-        .replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '');
-  }
-
-  static String _removeTrailingCommas(String input) {
-    return input.replaceAllMapped(
-      RegExp(r',(\s*[}\]])'),
-      (match) => match.group(1)!,
+    return LooseJsonRepairResult(
+      repaired: attempt.repaired,
+      description: attempt.description,
+      highlights: attempt.highlights,
+      kind: attempt.kind,
     );
   }
 }
@@ -152,7 +128,7 @@ abstract final class JsonExtractor {
   static final _arrayPattern = RegExp(r'(\[[\s\S]*\])');
 
   static String? extractFromText(String input) {
-    if (JugaadValidator.looksLikeJsonCandidate(input.trim())) {
+    if (JugaadValidator.looksLikeJsonRepairCandidate(input.trim())) {
       return null;
     }
 

@@ -109,6 +109,10 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                                   transformationSteps: transformationSteps,
                                   showExplorerHint:
                                       state.status == JsonJugaadStatus.success,
+                                  showRepairHint: state.status ==
+                                          JsonJugaadStatus.success &&
+                                      (state.result?.hasRepairHighlights ??
+                                          false),
                                   detectionSummary: detectionSummary,
                                   confidence: confidence,
                                   showDetectionMeta: showDetectionMeta,

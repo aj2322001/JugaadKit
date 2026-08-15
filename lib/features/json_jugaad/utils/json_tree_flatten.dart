@@ -7,11 +7,13 @@ class VisibleTreeRow {
     required this.node,
     required this.isExpanded,
     this.isCloseBracket = false,
+    this.isOpenBracket = false,
   });
 
   final JsonTreeNode node;
   final bool isExpanded;
   final bool isCloseBracket;
+  final bool isOpenBracket;
 }
 
 abstract final class JsonTreeFlatten {
@@ -25,9 +27,23 @@ abstract final class JsonTreeFlatten {
     void visit(JsonTreeNode node) {
       if (node.isExpandable) {
         if (node.path == JsonPath.root && node.key == null) {
+          rows.add(
+            VisibleTreeRow(
+              node: node,
+              isExpanded: true,
+              isOpenBracket: true,
+            ),
+          );
           for (final child in node.children) {
             visit(child);
           }
+          rows.add(
+            VisibleTreeRow(
+              node: node,
+              isExpanded: true,
+              isCloseBracket: true,
+            ),
+          );
           return;
         }
 

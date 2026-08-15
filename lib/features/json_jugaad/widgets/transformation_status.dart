@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:jugaadkit/features/json_jugaad/engine/confidence.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
+import 'package:jugaadkit/features/json_jugaad/models/json_repair_highlight.dart';
 import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/models/transformation_step.dart';
 
@@ -10,6 +11,7 @@ class TransformationStatus extends StatelessWidget {
     super.key,
     required this.steps,
     this.showExplorerHint = false,
+    this.showRepairHint = false,
     this.detectionSummary,
     this.confidence = Confidence.none,
     this.showDetectionMeta = false,
@@ -19,6 +21,7 @@ class TransformationStatus extends StatelessWidget {
 
   final List<TransformationStep> steps;
   final bool showExplorerHint;
+  final bool showRepairHint;
   final String? detectionSummary;
   final Confidence confidence;
   final bool showDetectionMeta;
@@ -28,6 +31,8 @@ class TransformationStatus extends StatelessWidget {
   static const String _explorerHint =
       'Click a key or value in the output to copy it.';
 
+  static const String _repairHint = jsonRepairStatusHint;
+
   @override
   Widget build(BuildContext context) {
     final lines = _buildLines();
@@ -36,6 +41,7 @@ class TransformationStatus extends StatelessWidget {
     if (lines.isEmpty &&
         !showDetectionMeta &&
         !showAmbiguous &&
+        !showRepairHint &&
         detectionSummary == null) {
       return const SizedBox.shrink();
     }
@@ -160,6 +166,10 @@ class TransformationStatus extends StatelessWidget {
 
     if (steps.isNotEmpty) {
       lines.add(_DisplayLine.fromStep(steps.first));
+    }
+
+    if (showRepairHint) {
+      lines.add(const _DisplayLine.hint(_repairHint));
     }
 
     if (showExplorerHint) {

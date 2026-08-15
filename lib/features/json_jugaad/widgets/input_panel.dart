@@ -21,6 +21,7 @@ class InputPanel extends StatelessWidget {
     this.isProcessing = false,
     this.transformationSteps = const [],
     this.showExplorerHint = false,
+    this.showRepairHint = false,
     this.detectionSummary,
     this.confidence = Confidence.none,
     this.showDetectionMeta = false,
@@ -36,6 +37,7 @@ class InputPanel extends StatelessWidget {
   final bool isProcessing;
   final List<TransformationStep> transformationSteps;
   final bool showExplorerHint;
+  final bool showRepairHint;
   final String? detectionSummary;
   final Confidence confidence;
   final bool showDetectionMeta;
@@ -46,6 +48,7 @@ class InputPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final showStatus = transformationSteps.isNotEmpty ||
         showExplorerHint ||
+        showRepairHint ||
         showDetectionMeta ||
         (ambiguousError?.isAmbiguousAutoFailure ?? false);
 
@@ -112,6 +115,7 @@ class InputPanel extends StatelessWidget {
                 child: TransformationStatus(
                   steps: transformationSteps,
                   showExplorerHint: showExplorerHint,
+                  showRepairHint: showRepairHint,
                   detectionSummary: detectionSummary,
                   confidence: confidence,
                   showDetectionMeta: showDetectionMeta,

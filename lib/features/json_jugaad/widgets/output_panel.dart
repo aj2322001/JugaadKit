@@ -263,6 +263,7 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
                     searchNavigator: _searchNavigator,
                     onSearchChanged: _onSearchChanged,
                     reportsSearchMatches: true,
+                    repairHighlights: widget.result.repairHighlightSet,
                   ),
                 ),
               ),
