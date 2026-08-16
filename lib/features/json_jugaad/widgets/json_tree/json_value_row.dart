@@ -28,6 +28,8 @@ class JsonValueRow extends StatelessWidget {
     this.repairHighlights = JsonRepairHighlightSet.empty,
   });
 
+  static const double _trailingContentGap = 12;
+
   final JsonTreeNode node;
   final String searchQuery;
   final JsonTreeSearchResult? searchResult;
@@ -74,89 +76,84 @@ class JsonValueRow extends StatelessWidget {
             onEnter: (_) => onHover(node),
             child: SearchMatchHighlight(
               isActive: isActiveSearchMatch,
-              child: Padding(
-                padding: EdgeInsets.only(left: 16.0 + (node.depth * 16)),
+              child: JsonTreeRowShell(
+                depth: node.depth,
+                leading: const JsonTreeExpandLeadingSlot(),
+                trailing: JsonTreeTrailingActions(
+                  visible: showActions,
+                  onCopyPath: () => _copyPath(context),
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (node.key != null) ...[
-                            Flexible(
-                              child: JsonRepairTooltip(
-                                highlight: repairHighlights.highlightForKey(
-                                  node.path,
-                                ),
-                                child: JsonTreeCopyTarget(
-                                  text: node.key!,
-                                  copyType: CopyFeedbackType.key,
-                                  child: HighlightedText(
-                                    text: node.key!,
-                                    query: match?.keyMatches == true
-                                        ? searchQuery
-                                        : null,
-                                    highlightColor: colors.searchHighlight,
-                                    style: keyStyle,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              ': ',
-                              style: TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 13,
-                                color:
-                                    colors.structure.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ],
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                JsonRepairTooltip(
-                                  highlight: repairHighlights.highlightForValue(
-                                    node.path,
-                                  ),
-                                  child: JsonTreeCopyTarget(
-                                    text: JsonCopyUtil.valueForClipboard(node),
-                                    copyType: CopyFeedbackType.value,
-                                    child: HighlightedText(
-                                      text: _formattedValue(),
-                                      query: match?.valueMatches == true
-                                          ? searchQuery
-                                          : null,
-                                      highlightColor: colors.searchHighlight,
-                                      style: valueStyle,
-                                    ),
-                                  ),
-                                ),
-                                if (_timestampHint != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      'timestamp ${_timestampHint!.label}',
-                                      style:
-                                          theme.textTheme.bodySmall?.copyWith(
-                                        fontFamily: 'monospace',
-                                        fontSize: 10,
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                    if (node.key != null) ...[
+                      JsonRepairTooltip(
+                        highlight: repairHighlights.highlightForKey(
+                          node.path,
+                        ),
+                        child: JsonTreeCopyTarget(
+                          text: node.key!,
+                          copyType: CopyFeedbackType.key,
+                          child: HighlightedText(
+                            text: node.key!,
+                            query: match?.keyMatches == true
+                                ? searchQuery
+                                : null,
+                            highlightColor: colors.searchHighlight,
+                            style: keyStyle,
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    JsonTreeTrailingActions(
-                      visible: showActions,
-                      onCopyPath: () => _copyPath(context),
+                      Text(
+                        ': ',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          color: colors.structure.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ],
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          right: _trailingContentGap,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            JsonRepairTooltip(
+                              highlight: repairHighlights.highlightForValue(
+                                node.path,
+                              ),
+                              child: JsonTreeCopyTarget(
+                                text: JsonCopyUtil.valueForClipboard(node),
+                                copyType: CopyFeedbackType.value,
+                                child: HighlightedText(
+                                  text: _formattedValue(),
+                                  query: match?.valueMatches == true
+                                      ? searchQuery
+                                      : null,
+                                  highlightColor: colors.searchHighlight,
+                                  style: valueStyle,
+                                ),
+                              ),
+                            ),
+                            if (_timestampHint != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'timestamp ${_timestampHint!.label}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontSize: 10,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

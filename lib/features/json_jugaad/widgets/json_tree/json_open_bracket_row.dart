@@ -30,29 +30,24 @@ class JsonOpenBracketRow extends StatelessWidget {
     return RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => onHover(node),
-        child: Padding(
-          padding: const EdgeInsets.only(left: 0),
-          child: Row(
-            children: [
-              SizedBox(width: JsonTreeLayout.expandLeadingWidth),
-              JsonRepairTooltip(
-                highlight: highlightBracket
-                    ? repairHighlights.highlightForStructure(node.path)
-                    : null,
-                child: Text(
-                  node.openingBracket,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    color: highlightBracket
-                        ? jsonRepairHighlightColor
-                        : colors.structure.withValues(alpha: 0.7),
-                  ),
-                ),
+        child: JsonTreeRowShell(
+          depth: node.depth,
+          leading: const JsonTreeExpandLeadingSlot(),
+          trailing: const SizedBox(width: JsonTreeLayout.trailingActionsWidth),
+          child: JsonRepairTooltip(
+            highlight: highlightBracket
+                ? repairHighlights.highlightForStructure(node.path)
+                : null,
+            child: Text(
+              node.openingBracket,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                color: highlightBracket
+                    ? jsonRepairHighlightColor
+                    : colors.structure.withValues(alpha: 0.7),
               ),
-              const Spacer(),
-              const SizedBox(width: JsonTreeLayout.trailingActionsWidth),
-            ],
+            ),
           ),
         ),
       ),

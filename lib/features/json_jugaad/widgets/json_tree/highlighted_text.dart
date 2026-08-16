@@ -18,7 +18,7 @@ class HighlightedText extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalizedQuery = query?.trim();
     if (normalizedQuery == null || normalizedQuery.isEmpty) {
-      return Text(text, style: style);
+      return Text(text, style: style, softWrap: true);
     }
 
     final lowerText = text.toLowerCase();
@@ -51,6 +51,9 @@ class HighlightedText extends StatelessWidget {
       start = index + normalizedQuery.length;
     }
 
-    return Text.rich(TextSpan(children: spans));
+    return Text.rich(
+      TextSpan(children: spans),
+      softWrap: true,
+    );
   }
 }

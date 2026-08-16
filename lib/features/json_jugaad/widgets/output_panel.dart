@@ -14,6 +14,7 @@ import 'package:jugaadkit/widgets/common/error_state.dart';
 import 'structured_output_view.dart';
 
 import 'json_tree_view.dart';
+import 'output_scroll_behavior.dart';
 
 class OutputPanel extends StatelessWidget {
   const OutputPanel({
@@ -27,38 +28,57 @@ class OutputPanel extends StatelessWidget {
   final JsonJugaadResult? result;
   final JsonJugaadError? error;
 
+  static Widget _withOutputScrollBehavior(Widget child) {
+    return ScrollConfiguration(
+      behavior: const OutputScrollBehavior(),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
       child: switch (status) {
-        JsonJugaadStatus.empty => const _OutputShell(
-            child: EmptyState(
-              title: 'No output yet',
-              message: 'Paste data in the input panel to see formatted output.',
+        JsonJugaadStatus.empty => _withOutputScrollBehavior(
+            const _OutputShell(
+              child: EmptyState(
+                title: 'No output yet',
+                message: 'Paste data in the input panel to see formatted output.',
+              ),
             ),
           ),
-        JsonJugaadStatus.processing => const _OutputShell(
-            child: Center(child: CircularProgressIndicator()),
+        JsonJugaadStatus.processing => _withOutputScrollBehavior(
+            const _OutputShell(
+              child: Center(child: CircularProgressIndicator()),
+            ),
           ),
         JsonJugaadStatus.success when result != null && result!.isJsonOutput =>
-          _JsonOutputExplorer(
-            key: ValueKey(result!.originalInput),
-            result: result!,
+          _withOutputScrollBehavior(
+            _JsonOutputExplorer(
+              key: ValueKey(result!.originalInput),
+              result: result!,
+            ),
           ),
         JsonJugaadStatus.success when result != null && result!.hasStructuredOutput =>
-          StructuredOutputView(
-            key: ValueKey(result!.originalInput),
-            result: result!,
+          _withOutputScrollBehavior(
+            StructuredOutputView(
+              key: ValueKey(result!.originalInput),
+              result: result!,
+            ),
           ),
-        JsonJugaadStatus.success when result != null => _TextOutputView(
-            key: ValueKey(result!.originalInput),
-            result: result!,
+        JsonJugaadStatus.success when result != null => _withOutputScrollBehavior(
+            _TextOutputView(
+              key: ValueKey(result!.originalInput),
+              result: result!,
+            ),
           ),
-        JsonJugaadStatus.error => _OutputShell(
-            child: SingleChildScrollView(
-              child: ErrorState(
-                message: error?.message ?? 'Failed to process input.',
-                detail: error?.detail ?? error?.lastAttempt,
+        JsonJugaadStatus.error => _withOutputScrollBehavior(
+            _OutputShell(
+              child: SingleChildScrollView(
+                child: ErrorState(
+                  message: error?.message ?? 'Failed to process input.',
+                  detail: error?.detail ?? error?.lastAttempt,
+                ),
               ),
             ),
           ),

@@ -236,11 +236,9 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(12),
-                child: _StructuredSectionsList(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: _StructuredSectionsList(
                   sections: structured.sections,
                   searchController: _searchController,
                   searchNavigator: _searchNavigator,
@@ -248,7 +246,6 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                   detachJsonPathFooter: hasJsonBody,
                   hoveredPathNotifier: _hoveredPathNotifier,
                   reportsSearchMatches: hasJsonBody,
-                ),
               ),
             ),
           ),

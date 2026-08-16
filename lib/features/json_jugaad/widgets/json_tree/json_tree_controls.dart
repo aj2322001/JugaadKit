@@ -1,11 +1,73 @@
 import 'package:flutter/material.dart';
 
 abstract final class JsonTreeLayout {
+  static const double depthIndent = 16;
   static const double trailingActionsWidth = 22;
   static const double scrollbarGutter = 14;
   static const double expandIconSize = 16;
   static const double expandControlWidth = 20;
   static const double expandLeadingWidth = expandControlWidth + 4;
+
+  static double depthPadding(int depth) => depth * depthIndent;
+}
+
+/// Shared depth indent + optional expand column for every tree row.
+class JsonTreeRowShell extends StatelessWidget {
+  const JsonTreeRowShell({
+    super.key,
+    required this.depth,
+    required this.leading,
+    required this.child,
+    this.trailing,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
+  });
+
+  final int depth;
+  final Widget leading;
+  final Widget child;
+  final Widget? trailing;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: JsonTreeLayout.depthPadding(depth)),
+      child: Row(
+        crossAxisAlignment: crossAxisAlignment,
+        children: [
+          leading,
+          Expanded(child: child),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+/// Fixed-width slot matching the expandable row chevron column.
+class JsonTreeExpandLeadingSlot extends StatelessWidget {
+  const JsonTreeExpandLeadingSlot({super.key, this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (child == null) {
+      return const SizedBox(width: JsonTreeLayout.expandLeadingWidth);
+    }
+
+    return SizedBox(
+      width: JsonTreeLayout.expandLeadingWidth,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: JsonTreeLayout.expandControlWidth,
+          height: JsonTreeLayout.expandControlWidth,
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 class SearchMatchHighlight extends StatelessWidget {

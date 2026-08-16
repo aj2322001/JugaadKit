@@ -24,36 +24,30 @@ class JsonBracketRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = JsonSyntaxColors.of(context);
-    final indent = node.depth * 16.0;
     final highlightBracket =
         repairHighlights.shouldHighlightClosingBracket(node.path);
 
     return RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => onHover(node),
-        child: Padding(
-          padding: EdgeInsets.only(left: indent),
-          child: Row(
-            children: [
-              SizedBox(width: JsonTreeLayout.expandLeadingWidth),
-              JsonRepairTooltip(
-                highlight: highlightBracket
-                    ? repairHighlights.highlightForStructure(node.path)
-                    : null,
-                child: Text(
-                  node.closingBracket,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    color: highlightBracket
-                        ? jsonRepairHighlightColor
-                        : colors.structure.withValues(alpha: 0.7),
-                  ),
-                ),
+        child: JsonTreeRowShell(
+          depth: node.depth,
+          leading: const JsonTreeExpandLeadingSlot(),
+          trailing: const SizedBox(width: JsonTreeLayout.trailingActionsWidth),
+          child: JsonRepairTooltip(
+            highlight: highlightBracket
+                ? repairHighlights.highlightForStructure(node.path)
+                : null,
+            child: Text(
+              node.closingBracket,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                color: highlightBracket
+                    ? jsonRepairHighlightColor
+                    : colors.structure.withValues(alpha: 0.7),
               ),
-              const Spacer(),
-              const SizedBox(width: JsonTreeLayout.trailingActionsWidth),
-            ],
+            ),
           ),
         ),
       ),

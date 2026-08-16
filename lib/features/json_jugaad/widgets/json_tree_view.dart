@@ -17,6 +17,17 @@ import 'json_tree/json_open_bracket_row.dart';
 import 'json_tree/json_tree_controls.dart';
 import 'json_tree/json_value_row.dart';
 
+Widget _fullWidthTreeRow(Widget child) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return SizedBox(
+        width: constraints.maxWidth,
+        child: child,
+      );
+    },
+  );
+}
+
 typedef JsonTreeSearchListener = void Function(
   String query,
   JsonTreeSearchResult? result,
@@ -480,47 +491,55 @@ class _JsonTreeViewState extends State<JsonTreeView> {
               );
 
         if (row.isOpenBracket) {
-          return JsonOpenBracketRow(
-            key: rowKey,
-            node: node,
-            onHover: _onNodeHover,
-            repairHighlights: widget.repairHighlights,
+          return _fullWidthTreeRow(
+            JsonOpenBracketRow(
+              key: rowKey,
+              node: node,
+              onHover: _onNodeHover,
+              repairHighlights: widget.repairHighlights,
+            ),
           );
         }
 
         if (row.isCloseBracket) {
-          return JsonBracketRow(
-            key: rowKey,
-            node: node,
-            onHover: _onNodeHover,
-            repairHighlights: widget.repairHighlights,
+          return _fullWidthTreeRow(
+            JsonBracketRow(
+              key: rowKey,
+              node: node,
+              onHover: _onNodeHover,
+              repairHighlights: widget.repairHighlights,
+            ),
           );
         }
 
         if (node.isExpandable) {
-          return JsonExpandableRow(
+          return _fullWidthTreeRow(
+            JsonExpandableRow(
+              key: rowKey,
+              node: node,
+              isExpanded: row.isExpanded,
+              searchQuery: _searchQuery,
+              searchResult: _searchResult,
+              hoveredPath: _hoveredPath,
+              isActiveSearchMatch: isActiveSearchMatch,
+              onToggle: _toggleExpansion,
+              onHover: _onNodeHover,
+              repairHighlights: widget.repairHighlights,
+            ),
+          );
+        }
+
+        return _fullWidthTreeRow(
+          JsonValueRow(
             key: rowKey,
             node: node,
-            isExpanded: row.isExpanded,
             searchQuery: _searchQuery,
             searchResult: _searchResult,
             hoveredPath: _hoveredPath,
             isActiveSearchMatch: isActiveSearchMatch,
-            onToggle: _toggleExpansion,
             onHover: _onNodeHover,
             repairHighlights: widget.repairHighlights,
-          );
-        }
-
-        return JsonValueRow(
-          key: rowKey,
-          node: node,
-          searchQuery: _searchQuery,
-          searchResult: _searchResult,
-          hoveredPath: _hoveredPath,
-          isActiveSearchMatch: isActiveSearchMatch,
-          onHover: _onNodeHover,
-          repairHighlights: widget.repairHighlights,
+          ),
         );
       },
     );
@@ -532,11 +551,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
           treeList
         else
           Expanded(
-            child: Scrollbar(
-              thumbVisibility: true,
-              controller: _scrollController,
-              child: treeList,
-            ),
+            child: treeList,
           ),
         if (widget.showPathFooter && !widget.detachPathFooter)
           JsonTreePathFooter(

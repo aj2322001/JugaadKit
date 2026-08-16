@@ -53,7 +53,6 @@ class JsonExpandableRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = JsonSyntaxColors.of(context);
     final match = searchResult?.matchFor(node.path);
-    final indent = node.depth * 16.0;
     final highlightBracket =
         repairHighlights.shouldHighlightOpeningBracket(node.path);
     final suffix = isExpanded ? ' ${node.openingBracket}' : node.countSuffix;
@@ -83,81 +82,72 @@ class JsonExpandableRow extends StatelessWidget {
             onEnter: (_) => onHover(node),
             child: SearchMatchHighlight(
               isActive: isActiveSearchMatch,
-              child: Padding(
-                padding: EdgeInsets.only(left: indent),
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: () => onToggle(node.path),
-                      borderRadius: BorderRadius.circular(4),
-                      child: SizedBox(
-                        width: JsonTreeLayout.expandControlWidth,
-                        height: JsonTreeLayout.expandControlWidth,
-                        child: Center(
-                          child: JsonTreeExpandIcon(
-                            isExpanded: isExpanded,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.8),
+              child: JsonTreeRowShell(
+                depth: node.depth,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                leading: JsonTreeExpandLeadingSlot(
+                  child: InkWell(
+                    onTap: () => onToggle(node.path),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Center(
+                      child: JsonTreeExpandIcon(
+                        isExpanded: isExpanded,
+                        color: theme.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ),
+                ),
+                trailing: JsonTreeTrailingActions(
+                  visible: showActions,
+                  onCopyPath: () => _copyPath(context),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (node.key != null)
+                        JsonRepairTooltip(
+                          highlight: repairHighlights.highlightForKey(
+                            node.path,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: JsonTreeLayout.expandLeadingWidth -
-                        JsonTreeLayout.expandControlWidth),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            if (node.key != null)
-                              JsonRepairTooltip(
-                                highlight: repairHighlights.highlightForKey(
-                                  node.path,
-                                ),
-                                child: JsonTreeCopyTarget(
-                                  text: node.key!,
-                                  copyType: CopyFeedbackType.key,
-                                  child: HighlightedText(
-                                    text: node.headerLabel,
-                                    query: match?.keyMatches == true
-                                        ? searchQuery
-                                        : null,
-                                    highlightColor: colors.searchHighlight,
-                                    style: keyStyle,
-                                  ),
-                                ),
-                              )
-                            else
-                              HighlightedText(
-                                text: node.headerLabel,
-                                query: match?.keyMatches == true
-                                    ? searchQuery
-                                    : null,
-                                highlightColor: colors.searchHighlight,
-                                style: keyStyle,
-                              ),
-                            JsonRepairTooltip(
-                              highlight: highlightBracket
-                                  ? repairHighlights.highlightForStructure(
-                                      node.path,
-                                    )
+                          child: JsonTreeCopyTarget(
+                            text: node.key!,
+                            copyType: CopyFeedbackType.key,
+                            child: HighlightedText(
+                              text: node.headerLabel,
+                              query: match?.keyMatches == true
+                                  ? searchQuery
                                   : null,
-                              child: JsonTreeCopyTarget(
-                                text: JsonCopyUtil.valueForClipboard(node),
-                                copyType: CopyFeedbackType.value,
-                                child: Text(suffix, style: suffixStyle),
-                              ),
+                              highlightColor: colors.searchHighlight,
+                              style: keyStyle,
                             ),
-                          ],
+                          ),
+                        )
+                      else
+                        HighlightedText(
+                          text: node.headerLabel,
+                          query: match?.keyMatches == true
+                              ? searchQuery
+                              : null,
+                          highlightColor: colors.searchHighlight,
+                          style: keyStyle,
+                        ),
+                      JsonRepairTooltip(
+                        highlight: highlightBracket
+                            ? repairHighlights.highlightForStructure(
+                                node.path,
+                              )
+                            : null,
+                        child: JsonTreeCopyTarget(
+                          text: JsonCopyUtil.valueForClipboard(node),
+                          copyType: CopyFeedbackType.value,
+                          child: Text(suffix, style: suffixStyle),
                         ),
                       ),
-                    ),
-                    JsonTreeTrailingActions(
-                      visible: showActions,
-                      onCopyPath: () => _copyPath(context),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
