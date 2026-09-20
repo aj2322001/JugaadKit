@@ -13,6 +13,7 @@ enum JsonRepairKind {
   pythonTrue,
   pythonFalse,
   pythonNone,
+  missingNullValue,
   trailingComma,
   comment,
   missingClosing,
@@ -51,6 +52,7 @@ class JsonRepairHighlight {
         JsonRepairKind.pythonFalse ||
         JsonRepairKind.pythonNone =>
           'Invalid JSON value',
+        JsonRepairKind.missingNullValue => 'Missing value',
         JsonRepairKind.trailingComma => 'Trailing comma',
         JsonRepairKind.comment => 'JSON comment',
         JsonRepairKind.missingClosing => repairedText == ']'

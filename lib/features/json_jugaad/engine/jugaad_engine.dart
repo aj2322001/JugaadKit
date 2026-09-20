@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:jugaadkit/features/json_jugaad/constants/json_jugaad_constants.dart';
 import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.dart';
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_error.dart';
@@ -244,7 +242,8 @@ class JugaadEngine {
     final repairHighlights = <JsonRepairHighlight>[];
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
-      final parsed = JugaadValidator.tryParseJson(current);
+      final parsed = JugaadValidator.tryParseJson(current) ??
+          JugaadValidator.tryParseJsonRepairingLiteralControlChars(current);
       if (parsed != null) {
         final nested = _extractNestedJson(parsed.value, steps);
         if (nested.changed) {
@@ -650,7 +649,8 @@ class JugaadEngine {
     final repairHighlights = <JsonRepairHighlight>[];
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
-      final parsed = JugaadValidator.tryParseJson(working);
+      final parsed = JugaadValidator.tryParseJson(working) ??
+          JugaadValidator.tryParseJsonRepairingLiteralControlChars(working);
       if (parsed != null) {
         final nested = _extractNestedJson(parsed.value, steps);
         if (nested.changed) {
@@ -1477,6 +1477,13 @@ class JugaadEngine {
   }
 
   _TransformCandidate? _nextTransform(String input) {
+    if (JugaadValidator.looksLikeDocumentLevelEscapedJson(input)) {
+      final unescaped = _tryUnescapeJsonString(input);
+      if (unescaped != null) {
+        return unescaped;
+      }
+    }
+
     if (JugaadValidator.looksLikeJsonRepairCandidate(input)) {
       final repair = _tryLooseJsonRepair(input);
       if (repair != null) {
@@ -1644,59 +1651,28 @@ class JugaadEngine {
   }
 
   _TransformCandidate? _tryUnescapeJsonString(String input) {
-    if (JugaadValidator.tryParseJson(input) != null) {
+    final decoded = JugaadValidator.tryDecodeEscapedJsonLayer(input);
+    if (decoded == null) {
       return null;
     }
 
-    if (JugaadValidator.isJsonStringLiteral(input)) {
-      try {
-        final decoded = jsonDecode(input);
-        if (decoded is String &&
-            decoded != input &&
-            (JugaadValidator.looksLikeJsonCandidate(decoded) ||
-                JugaadValidator.tryParseJson(decoded) != null)) {
-          return _TransformCandidate(
-            output: decoded,
-            step: TransformationStep(
-              type: TransformationType.decodedEscaped,
-              description: 'Decoded escaped JSON string',
-              detail: previewText(decoded),
-            ),
-            format: DetectedFormat.escapedJson,
-            confidence: Confidence.high,
-          );
-        }
-      } on FormatException {
-        // Fall through.
-      }
-    }
-
-    if (!input.contains(r'\') && !input.contains(r'\"')) {
+    if (!JugaadValidator.looksLikeJsonCandidate(decoded) &&
+        JugaadValidator.tryParseJson(decoded) == null &&
+        JugaadValidator.tryParseJsonRepairingLiteralControlChars(decoded) ==
+            null) {
       return null;
     }
 
-    try {
-      final decoded = jsonDecode('"$input"');
-      if (decoded is String &&
-          decoded != input &&
-          (JugaadValidator.looksLikeJsonCandidate(decoded) ||
-              JugaadValidator.tryParseJson(decoded) != null)) {
-        return _TransformCandidate(
-          output: decoded,
-          step: TransformationStep(
-            type: TransformationType.decodedEscaped,
-            description: 'Decoded escaped JSON string',
-            detail: previewText(decoded),
-          ),
-          format: DetectedFormat.escapedJson,
-          confidence: Confidence.high,
-        );
-      }
-    } on FormatException {
-      return null;
-    }
-
-    return null;
+    return _TransformCandidate(
+      output: decoded,
+      step: TransformationStep(
+        type: TransformationType.decodedEscaped,
+        description: 'Decoded escaped JSON string',
+        detail: previewText(decoded),
+      ),
+      format: DetectedFormat.escapedJson,
+      confidence: Confidence.high,
+    );
   }
 
   _TransformCandidate? _tryLooseJsonRepair(String input) {
@@ -1847,14 +1823,16 @@ class JugaadEngine {
       return null;
     }
 
-    final parsed = JugaadValidator.tryParseJson(trimmed);
+    final parsed = JugaadValidator.tryParseJson(trimmed) ??
+        JugaadValidator.tryParseJsonRepairingLiteralControlChars(trimmed);
     if (parsed != null) {
       return parsed.value;
     }
 
-    final unescaped = _tryUnescapeJsonString(trimmed);
+    final unescaped = JugaadValidator.tryDecodeEscapedJsonLayer(trimmed);
     if (unescaped != null) {
-      final reparsed = JugaadValidator.tryParseJson(unescaped.output);
+      final reparsed = JugaadValidator.tryParseJson(unescaped) ??
+          JugaadValidator.tryParseJsonRepairingLiteralControlChars(unescaped);
       if (reparsed != null) {
         return reparsed.value;
       }

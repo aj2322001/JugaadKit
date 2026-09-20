@@ -51,7 +51,8 @@ abstract final class JsonRepairEngine {
 
     final base = withoutComments;
 
-    return _repairSingleQuotedStrings(base) ??
+    return _repairQuotedKeysWithoutValues(base) ??
+        _repairSingleQuotedStrings(base) ??
         _repairUnquotedKeys(base) ??
         _repairPythonPrimitives(base) ??
         _repairMissingClosing(base);
@@ -67,6 +68,56 @@ abstract final class JsonRepairEngine {
     return input.replaceAllMapped(
       RegExp(r',(\s*[}\]])'),
       (match) => match.group(1)!,
+    );
+  }
+
+  static JsonRepairAttempt? _repairQuotedKeysWithoutValues(String input) {
+    final highlights = <JsonRepairHighlight>[];
+    final scanner = _ScannerState(input);
+    final buffer = StringBuffer();
+    var changed = false;
+
+    while (!scanner.isAtEnd) {
+      if (scanner.inDoubleString) {
+        buffer.write(scanner.readChar());
+        continue;
+      }
+
+      if (scanner.expectingColon) {
+        scanner.copyWhitespace(buffer);
+        if (scanner.isAtEnd) {
+          break;
+        }
+
+        final next = scanner.currentChar;
+        if (next == ',' || next == '}' || next == ']') {
+          final valuePath = scanner.currentValuePath;
+          buffer.write(':null');
+          highlights.add(
+            JsonRepairHighlight(
+              path: valuePath,
+              target: JsonRepairTarget.value,
+              kind: JsonRepairKind.missingNullValue,
+              originalText: '(missing)',
+              repairedText: 'null',
+            ),
+          );
+          scanner.resolveMissingNullValue();
+          changed = true;
+          continue;
+        }
+      }
+
+      buffer.write(scanner.readStructuralChar());
+    }
+
+    return _attempt(
+      input: input,
+      repaired: buffer.toString(),
+      changed: changed,
+      description: 'Added missing null values for object keys',
+      highlights: highlights,
+      kind: JsonRepairKind.missingNullValue,
     );
   }
 
@@ -467,6 +518,19 @@ class _ScannerState {
     return _stack.last.expectingValue;
   }
 
+  bool get expectingColon {
+    if (inDoubleString) {
+      return false;
+    }
+    return _stack.last.expectingColon;
+  }
+
+  void resolveMissingNullValue() {
+    _stack.last.expectingColon = false;
+    _stack.last.expectingValue = false;
+    _stack.last.expectingComma = true;
+  }
+
   void copyWhitespace(StringBuffer buffer) {
     while (!isAtEnd && _isWhitespace(currentChar)) {
       buffer.write(readChar());
@@ -600,6 +664,10 @@ class _ScannerState {
       case ':':
         if (_stack.last.expectingColon) {
           _stack.last.expectingColon = false;
+          _stack.last.expectingValue = true;
+        } else if (_stack.last.expectingKey) {
+          // `{name: "value"}` — unquoted key before colon.
+          _stack.last.expectingKey = false;
           _stack.last.expectingValue = true;
         }
       case ',':

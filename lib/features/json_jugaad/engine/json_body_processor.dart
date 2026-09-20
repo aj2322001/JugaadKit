@@ -31,7 +31,8 @@ abstract final class JsonBodyProcessor {
       return null;
     }
 
-    final parsed = JugaadValidator.tryParseJson(trimmed);
+    final parsed = JugaadValidator.tryParseJson(trimmed) ??
+        JugaadValidator.tryParseJsonRepairingLiteralControlChars(trimmed);
     if (parsed != null) {
       return JsonBodyProcessResult(
         value: parsed.value,
@@ -43,6 +44,20 @@ abstract final class JsonBodyProcessor {
     var working = trimmed;
     final highlights = <JsonRepairHighlight>[];
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
+      final unescaped = JugaadValidator.tryDecodeEscapedJsonLayer(working);
+      if (unescaped != null) {
+        working = unescaped;
+        final reparsed = JugaadValidator.tryParseJson(working) ??
+            JugaadValidator.tryParseJsonRepairingLiteralControlChars(working);
+        if (reparsed != null) {
+          return JsonBodyProcessResult(
+            value: reparsed.value,
+            repairHighlights: highlights,
+            wasRepaired: highlights.isNotEmpty,
+          );
+        }
+      }
+
       final repair = LooseJsonRepair.tryRepair(working);
       if (repair == null) {
         break;
@@ -51,7 +66,8 @@ abstract final class JsonBodyProcessor {
       highlights.addAll(repair.highlights);
       working = repair.repaired;
 
-      final reparsed = JugaadValidator.tryParseJson(working);
+      final reparsed = JugaadValidator.tryParseJson(working) ??
+          JugaadValidator.tryParseJsonRepairingLiteralControlChars(working);
       if (reparsed != null) {
         return JsonBodyProcessResult(
           value: reparsed.value,

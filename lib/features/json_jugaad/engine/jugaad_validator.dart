@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'confidence.dart';
+import 'json_string_control_char_repair.dart';
 
 class JsonParseResult {
   const JsonParseResult(this.value);
@@ -15,6 +16,56 @@ abstract final class JugaadValidator {
     } on FormatException {
       return null;
     }
+  }
+
+  /// Strict JSON parse with a fallback that escapes literal control characters
+  /// found inside JSON strings.
+  ///
+  /// This must run only after [tryDecodeEscapedJsonLayer] when the input is an
+  /// escaped JSON document. Escaped documents use `\"` at the document layer,
+  /// which is not the same as a JSON string delimiter.
+  static JsonParseResult? tryParseJsonRepairingLiteralControlChars(
+    String input,
+  ) {
+    final parsed = tryParseJson(input);
+    if (parsed != null) {
+      return parsed;
+    }
+
+    if (!looksLikeJsonRepairCandidate(input) ||
+        looksLikeDocumentLevelEscapedJson(input)) {
+      return null;
+    }
+
+    final repaired = JsonStringControlCharRepair.tryRepair(input);
+    if (repaired == null) {
+      return null;
+    }
+
+    return tryParseJson(repaired);
+  }
+
+  /// Attempts to parse a single JSON document, including escaped-layer decode
+  /// and literal control-character repair when needed.
+  static JsonParseResult? tryParseResolvableJsonDocument(String input) {
+    final trimmed = input.trim();
+    if (!looksLikeJsonDocument(trimmed)) {
+      return null;
+    }
+
+    final direct = tryParseJson(trimmed) ??
+        tryParseJsonRepairingLiteralControlChars(trimmed);
+    if (direct != null) {
+      return direct;
+    }
+
+    final unescaped = tryDecodeEscapedJsonLayer(trimmed);
+    if (unescaped == null) {
+      return null;
+    }
+
+    return tryParseJson(unescaped) ??
+        tryParseJsonRepairingLiteralControlChars(unescaped);
   }
 
   static bool looksLikeJsonCandidate(String input) {
@@ -145,6 +196,12 @@ abstract final class JugaadValidator {
       return false;
     }
 
+    // Pretty-printed JSON with a literal newline inside a string value can look
+    // like NDJSON because multiple lines start with `{` or `[`.
+    if (tryParseResolvableJsonDocument(trimmed) != null) {
+      return false;
+    }
+
     final lines = trimmed
         .split(RegExp(r'\r?\n'))
         .map((line) => line.trim())
@@ -232,6 +289,152 @@ abstract final class JugaadValidator {
     return input.contains(r'\"') ||
         input.contains(r'\\') ||
         RegExp(r'\\u[0-9a-fA-F]{4}').hasMatch(input);
+  }
+
+  /// True when input looks like a JSON object/array with escaped quotes.
+  static bool looksLikeEscapedJsonDocument(String input) {
+    final trimmed = input.trim();
+    if (!looksLikeJsonDocument(trimmed)) {
+      return false;
+    }
+
+    return looksLikeEscapedJson(trimmed);
+  }
+
+  /// True when quotes appear escaped at the JSON document layer, e.g.
+  /// `{\"key\":\"value\"}` rather than normal `{"key":"value"}`.
+  static bool looksLikeDocumentLevelEscapedJson(String input) {
+    final trimmed = input.trim();
+    if (!looksLikeJsonDocument(trimmed)) {
+      return false;
+    }
+
+    var index = 0;
+    final first = trimmed[index];
+    if (first == '{') {
+      index = 1;
+    } else if (first == '[') {
+      index = 1;
+      while (index < trimmed.length && _isJsonWhitespace(trimmed.codeUnitAt(index))) {
+        index++;
+      }
+      if (index < trimmed.length && trimmed[index] == '{') {
+        index++;
+      }
+    } else {
+      return false;
+    }
+
+    while (index < trimmed.length && _isJsonWhitespace(trimmed.codeUnitAt(index))) {
+      index++;
+    }
+
+    if (index + 1 >= trimmed.length) {
+      return false;
+    }
+
+    return trimmed[index] == r'\' && trimmed[index + 1] == '"';
+  }
+
+  static bool _isJsonWhitespace(int codeUnit) {
+    return codeUnit == 0x20 ||
+        codeUnit == 0x09 ||
+        codeUnit == 0x0A ||
+        codeUnit == 0x0D;
+  }
+
+  /// Decodes one layer of JSON string escaping from text such as
+  /// `{\"key\":\"value\"}` or a JSON string literal containing that text.
+  static String? tryDecodeEscapedJsonLayer(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final parsed = tryParseJson(trimmed);
+    if (parsed != null) {
+      final value = parsed.value;
+      if (value is String) {
+        return _decodeEscapedJsonStringValue(value);
+      }
+      return null;
+    }
+
+    if (isJsonStringLiteral(trimmed)) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is String) {
+          return _decodeEscapedJsonStringValue(decoded);
+        }
+      } on FormatException {
+        // Fall through.
+      }
+    }
+
+    if (!looksLikeDocumentLevelEscapedJson(trimmed)) {
+      return null;
+    }
+
+    return _decodeJsonStringContents(trimmed);
+  }
+
+  static String? _decodeEscapedJsonStringValue(String value) {
+    if (looksLikeDocumentLevelEscapedJson(value)) {
+      final unescaped = _unescapeQuotedJsonDocument(value);
+      if (unescaped != null) {
+        return unescaped;
+      }
+    }
+
+    if (looksLikeJsonCandidate(value) || tryParseJson(value) != null) {
+      return value;
+    }
+
+    return null;
+  }
+
+  /// Unescapes one layer of quote/backslash encoding from a JSON document
+  /// that was copied without its outer quotes, e.g. `{\"key\":\"value\"}`.
+  static String? _unescapeQuotedJsonDocument(String input) {
+    if (!looksLikeEscapedJson(input)) {
+      return null;
+    }
+
+    final buffer = StringBuffer();
+    for (var index = 0; index < input.length; index++) {
+      final char = input[index];
+      if (char != r'\') {
+        buffer.write(char);
+        continue;
+      }
+
+      if (index + 1 >= input.length) {
+        return null;
+      }
+
+      final next = input[++index];
+      switch (next) {
+        case '"':
+          buffer.write('"');
+        case r'\':
+          buffer.write(r'\');
+        default:
+          buffer
+            ..write(r'\')
+            ..write(next);
+      }
+    }
+
+    final unescaped = buffer.toString();
+    if (unescaped == input) {
+      return null;
+    }
+
+    return unescaped;
+  }
+
+  static String? _decodeJsonStringContents(String contents) {
+    return _unescapeQuotedJsonDocument(contents);
   }
 
   static bool looksLikeCurl(String input) {
