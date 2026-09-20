@@ -63,6 +63,9 @@ class JsonJugaadResult {
 
   bool get hasStructuredOutput => structuredOutput != null;
 
+  bool get hasJsonSearch =>
+      isJsonOutput || structuredOutput?.jsonBodyValue != null;
+
   factory JsonJugaadResult.fromValue({
     required Object? value,
     required List<TransformationStep> steps,

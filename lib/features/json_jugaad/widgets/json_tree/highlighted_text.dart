@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_options.dart';
+
 class HighlightedText extends StatelessWidget {
   const HighlightedText({
     super.key,
@@ -7,12 +9,14 @@ class HighlightedText extends StatelessWidget {
     required this.style,
     this.query,
     this.highlightColor,
+    this.searchOptions = const JsonTreeSearchOptions(),
   });
 
   final String text;
   final TextStyle style;
   final String? query;
   final Color? highlightColor;
+  final JsonTreeSearchOptions searchOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -21,34 +25,33 @@ class HighlightedText extends StatelessWidget {
       return Text(text, style: style, softWrap: true);
     }
 
-    final lowerText = text.toLowerCase();
-    final lowerQuery = normalizedQuery.toLowerCase();
+    final ranges = searchOptions.matchRanges(text, normalizedQuery);
+    if (ranges.isEmpty) {
+      return Text(text, style: style, softWrap: true);
+    }
+
     final spans = <TextSpan>[];
-    var start = 0;
+    var cursor = 0;
 
-    while (true) {
-      final index = lowerText.indexOf(lowerQuery, start);
-      if (index < 0) {
-        if (start < text.length) {
-          spans.add(TextSpan(text: text.substring(start), style: style));
-        }
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(text: text.substring(start, index), style: style));
+    for (final range in ranges) {
+      if (range.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, range.start), style: style));
       }
 
       spans.add(
         TextSpan(
-          text: text.substring(index, index + normalizedQuery.length),
+          text: text.substring(range.start, range.end),
           style: style.copyWith(
             backgroundColor: highlightColor,
             fontWeight: FontWeight.w600,
           ),
         ),
       );
-      start = index + normalizedQuery.length;
+      cursor = range.end;
+    }
+
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor), style: style));
     }
 
     return Text.rich(

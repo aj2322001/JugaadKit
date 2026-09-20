@@ -9,7 +9,9 @@ import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_ui_state.dart'
 import 'package:jugaadkit/features/json_jugaad/models/processing_mode.dart';
 import 'package:jugaadkit/features/json_jugaad/view_models/json_jugaad_view_model.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/input_panel.dart';
+import 'package:jugaadkit/features/json_jugaad/widgets/output_json_search_focus.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/output_panel.dart';
+import 'package:jugaadkit/features/json_jugaad/widgets/output_search_shortcut_handler.dart';
 import 'package:jugaadkit/features/json_jugaad/widgets/tool_header.dart';
 import 'package:jugaadkit/widgets/common/app_page_shell.dart';
 
@@ -29,15 +31,30 @@ class JsonJugaadView extends StatefulWidget {
 
 class _JsonJugaadViewState extends State<JsonJugaadView> {
   late final TextEditingController _inputController;
+  final OutputJsonSearchFocus _outputSearchFocus = OutputJsonSearchFocus();
+  late final OutputSearchShortcutHandler _searchShortcutHandler;
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController(text: widget.viewModel.state.input);
+    _searchShortcutHandler = OutputSearchShortcutHandler(
+      focusTarget: _outputSearchFocus,
+      isEnabled: _isOutputSearchShortcutEnabled,
+    );
+    _searchShortcutHandler.install();
+  }
+
+  bool _isOutputSearchShortcutEnabled() {
+    final state = widget.viewModel.state;
+    return state.status == JsonJugaadStatus.success &&
+        (state.result?.hasJsonSearch ?? false);
   }
 
   @override
   void dispose() {
+    _searchShortcutHandler.dispose();
+    _outputSearchFocus.unregister();
     _inputController.dispose();
     super.dispose();
   }
@@ -55,7 +72,10 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
         listenable: widget.viewModel,
         builder: (context, _) {
           final state = widget.viewModel.state;
-          return Padding(
+          return OutputJsonSearchShortcuts(
+            focusTarget: _outputSearchFocus,
+            enabled: _isOutputSearchShortcutEnabled(),
+            child: Padding(
             padding: EdgeInsets.all(
               MediaQuery.sizeOf(context).width >= AppConstants.desktopBreakpoint
                   ? 24
@@ -123,6 +143,7 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                                   status: state.status,
                                   result: state.result,
                                   error: state.error,
+                                  searchFocusTarget: _outputSearchFocus,
                                 );
 
                                 if (isDesktop) {
@@ -153,7 +174,8 @@ class _JsonJugaadViewState extends State<JsonJugaadView> {
                           ),
                         ],
                       ),
-                    );
+            ),
+          );
         },
       ),
     );

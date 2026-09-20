@@ -10,15 +10,23 @@ import 'package:jugaadkit/features/json_jugaad/models/jugaad_structured_output.d
 import 'package:jugaadkit/features/json_jugaad/models/json_jugaad_result.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_options.dart';
 import 'package:jugaadkit/widgets/common/action_button.dart';
 
 import 'json_tree/json_tree_copy_target.dart';
+import 'json_tree_search_field.dart';
 import 'json_tree_view.dart';
+import 'output_json_search_focus.dart';
 
 class StructuredOutputView extends StatefulWidget {
-  const StructuredOutputView({super.key, required this.result});
+  const StructuredOutputView({
+    super.key,
+    required this.result,
+    this.searchFocusTarget,
+  });
 
   final JsonJugaadResult result;
+  final OutputJsonSearchFocus? searchFocusTarget;
 
   @override
   State<StructuredOutputView> createState() => _StructuredOutputViewState();
@@ -26,11 +34,14 @@ class StructuredOutputView extends StatefulWidget {
 
 class _StructuredOutputViewState extends State<StructuredOutputView> {
   late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
   late final JsonTreeSearchNavigator _searchNavigator;
   late final ValueNotifier<String?> _hoveredPathNotifier;
   Timer? _hoverClearTimer;
   String _searchQuery = '';
   int? _matchCount;
+  bool _matchCase = false;
+  bool _wholeWord = false;
 
   static const Duration _hoverClearDelay = Duration(milliseconds: 150);
 
@@ -41,8 +52,10 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
     _searchNavigator = JsonTreeSearchNavigator();
     _hoveredPathNotifier = ValueNotifier<String?>(null);
+    _registerSearchFocus();
   }
 
   @override
@@ -53,12 +66,28 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
       _searchQuery = '';
       _matchCount = null;
     }
+    if (oldWidget.searchFocusTarget != widget.searchFocusTarget) {
+      oldWidget.searchFocusTarget?.unregister();
+      _registerSearchFocus();
+    }
+  }
+
+  void _registerSearchFocus() {
+    if (!_hasJsonSearch) {
+      return;
+    }
+    widget.searchFocusTarget?.register(
+      focusNode: _searchFocusNode,
+      controller: _searchController,
+    );
   }
 
   @override
   void dispose() {
     _hoverClearTimer?.cancel();
+    widget.searchFocusTarget?.unregister();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _searchNavigator.dispose();
     _hoveredPathNotifier.dispose();
     super.dispose();
@@ -120,27 +149,14 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
               if (hasJsonSearch) ...[
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextField(
+                  child: JsonTreeSearchField(
                     controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search JSON…',
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              tooltip: 'Clear search',
-                              onPressed: _searchController.clear,
-                              icon: const Icon(Icons.clear, size: 16),
-                            )
-                          : null,
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
+                    focusNode: _searchFocusNode,
+                    matchCase: _matchCase,
+                    wholeWord: _wholeWord,
+                    showClear: _searchQuery.isNotEmpty,
+                    onMatchCaseChanged: (value) => setState(() => _matchCase = value),
+                    onWholeWordChanged: (value) => setState(() => _wholeWord = value),
                   ),
                 ),
                 if (_matchCount != null) ...[
@@ -246,6 +262,10 @@ class _StructuredOutputViewState extends State<StructuredOutputView> {
                   detachJsonPathFooter: hasJsonBody,
                   hoveredPathNotifier: _hoveredPathNotifier,
                   reportsSearchMatches: hasJsonBody,
+                  searchOptions: JsonTreeSearchOptions(
+                    matchCase: _matchCase,
+                    wholeWord: _wholeWord,
+                  ),
               ),
             ),
           ),
@@ -270,6 +290,7 @@ class _StructuredSectionsList extends StatelessWidget {
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
+    this.searchOptions = const JsonTreeSearchOptions(),
   });
 
   final List<JugaadOutputSection> sections;
@@ -279,6 +300,7 @@ class _StructuredSectionsList extends StatelessWidget {
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
+  final JsonTreeSearchOptions searchOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -295,6 +317,7 @@ class _StructuredSectionsList extends StatelessWidget {
             detachJsonPathFooter: detachJsonPathFooter,
             hoveredPathNotifier: hoveredPathNotifier,
             reportsSearchMatches: reportsSearchMatches,
+            searchOptions: searchOptions,
           ),
         ],
       ],
@@ -311,6 +334,7 @@ class _StructuredSectionView extends StatelessWidget {
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
+    this.searchOptions = const JsonTreeSearchOptions(),
   });
 
   final JugaadOutputSection section;
@@ -320,6 +344,7 @@ class _StructuredSectionView extends StatelessWidget {
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
+  final JsonTreeSearchOptions searchOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +372,7 @@ class _StructuredSectionView extends StatelessWidget {
               detachPathFooter: detachJsonPathFooter,
               hoveredPathNotifier: hoveredPathNotifier,
               reportsSearchMatches: reportsSearchMatches,
+              searchOptions: searchOptions,
             ),
           JugaadSectionType.xmlDocument => _MonospaceText(text: section.text!),
         },
@@ -577,6 +603,7 @@ class _BodyContentView extends StatelessWidget {
     this.detachPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
+    this.searchOptions = const JsonTreeSearchOptions(),
   });
 
   final JugaadBodyContent body;
@@ -586,6 +613,7 @@ class _BodyContentView extends StatelessWidget {
   final bool detachPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
+  final JsonTreeSearchOptions searchOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -601,6 +629,7 @@ class _BodyContentView extends StatelessWidget {
         showPathFooter: !detachPathFooter,
         detachPathFooter: detachPathFooter,
         hoveredPathNotifier: hoveredPathNotifier,
+        searchOptions: searchOptions,
       );
     }
 

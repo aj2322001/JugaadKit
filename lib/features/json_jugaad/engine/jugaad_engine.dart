@@ -116,6 +116,8 @@ class JugaadEngine {
       transformCount++;
     }
 
+    final parseSession = JsonParseSession();
+
     final earlyResult = _tryEarlyFormatDetection(
       current: current,
       steps: steps,
@@ -170,8 +172,11 @@ class JugaadEngine {
       );
     }
 
-    if (JugaadValidator.looksLikeNdjsonAttempt(current) &&
-        NdjsonCodec.tryParse(current) == null) {
+    if (JugaadValidator.looksLikeNdjsonAttempt(
+          current,
+          session: parseSession,
+        ) &&
+        NdjsonCodec.tryParse(current, session: parseSession) == null) {
       throw JsonJugaadError(
         message: 'Input looks like JSON Lines / NDJSON but contains invalid lines.',
         detail: 'Each non-empty line must be valid JSON.',
@@ -185,7 +190,7 @@ class JugaadEngine {
       );
     }
 
-    final ndjson = NdjsonCodec.tryParse(current);
+    final ndjson = NdjsonCodec.tryParse(current, session: parseSession);
     if (ndjson != null) {
       steps.add(
         TransformationStep(
@@ -242,8 +247,7 @@ class JugaadEngine {
     final repairHighlights = <JsonRepairHighlight>[];
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
-      final parsed = JugaadValidator.tryParseJson(current) ??
-          JugaadValidator.tryParseJsonRepairingLiteralControlChars(current);
+      final parsed = _parseResolvableJson(current, parseSession);
       if (parsed != null) {
         final nested = _extractNestedJson(parsed.value, steps);
         if (nested.changed) {
@@ -575,7 +579,7 @@ class JugaadEngine {
     required String originalInput,
     required ProcessingMode mode,
   }) {
-    final ndjson = NdjsonCodec.tryParse(current);
+    final ndjson = NdjsonCodec.tryParse(current, session: JsonParseSession());
     if (ndjson == null) {
       throw _manualFailure(
         mode: mode,
@@ -647,10 +651,10 @@ class JugaadEngine {
     var count = transformCount;
     var detectedFormat = primaryFormat;
     final repairHighlights = <JsonRepairHighlight>[];
+    final parseSession = JsonParseSession();
 
     for (var i = 0; i < JsonJugaadConstants.maxTransformIterations; i++) {
-      final parsed = JugaadValidator.tryParseJson(working) ??
-          JugaadValidator.tryParseJsonRepairingLiteralControlChars(working);
+      final parsed = _parseResolvableJson(working, parseSession);
       if (parsed != null) {
         final nested = _extractNestedJson(parsed.value, steps);
         if (nested.changed) {
@@ -1477,7 +1481,11 @@ class JugaadEngine {
   }
 
   _TransformCandidate? _nextTransform(String input) {
+    var triedUnescape = false;
+    var triedLooseRepair = false;
+
     if (JugaadValidator.looksLikeDocumentLevelEscapedJson(input)) {
+      triedUnescape = true;
       final unescaped = _tryUnescapeJsonString(input);
       if (unescaped != null) {
         return unescaped;
@@ -1485,6 +1493,7 @@ class JugaadEngine {
     }
 
     if (JugaadValidator.looksLikeJsonRepairCandidate(input)) {
+      triedLooseRepair = true;
       final repair = _tryLooseJsonRepair(input);
       if (repair != null) {
         return repair;
@@ -1500,8 +1509,8 @@ class JugaadEngine {
       _tryBase64(input),
       _tryHex(input),
       _tryCompressed(input),
-      _tryUnescapeJsonString(input),
-      _tryLooseJsonRepair(input),
+      if (!triedUnescape) _tryUnescapeJsonString(input),
+      if (!triedLooseRepair) _tryLooseJsonRepair(input),
     ];
 
     for (final candidate in candidates) {
@@ -1510,6 +1519,17 @@ class JugaadEngine {
       }
     }
     return null;
+  }
+
+  JsonParseResult? _parseResolvableJson(
+    String input,
+    JsonParseSession session,
+  ) {
+    return session.tryParseJson(input) ??
+        JugaadValidator.tryParseJsonRepairingLiteralControlChars(
+          input,
+          session: session,
+        );
   }
 
   _TransformCandidate? _tryExtractFromText(String input) {

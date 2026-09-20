@@ -11,10 +11,13 @@ import 'package:jugaadkit/widgets/common/action_button.dart';
 import 'package:jugaadkit/widgets/common/empty_state.dart';
 import 'package:jugaadkit/widgets/common/error_state.dart';
 
-import 'structured_output_view.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_options.dart';
 
+import 'json_tree_search_field.dart';
 import 'json_tree_view.dart';
+import 'output_json_search_focus.dart';
 import 'output_scroll_behavior.dart';
+import 'structured_output_view.dart';
 
 class OutputPanel extends StatelessWidget {
   const OutputPanel({
@@ -22,11 +25,13 @@ class OutputPanel extends StatelessWidget {
     required this.status,
     this.result,
     this.error,
+    this.searchFocusTarget,
   });
 
   final JsonJugaadStatus status;
   final JsonJugaadResult? result;
   final JsonJugaadError? error;
+  final OutputJsonSearchFocus? searchFocusTarget;
 
   static Widget _withOutputScrollBehavior(Widget child) {
     return ScrollConfiguration(
@@ -57,6 +62,7 @@ class OutputPanel extends StatelessWidget {
             _JsonOutputExplorer(
               key: ValueKey(result!.originalInput),
               result: result!,
+              searchFocusTarget: searchFocusTarget,
             ),
           ),
         JsonJugaadStatus.success when result != null && result!.hasStructuredOutput =>
@@ -64,6 +70,7 @@ class OutputPanel extends StatelessWidget {
             StructuredOutputView(
               key: ValueKey(result!.originalInput),
               result: result!,
+              searchFocusTarget: searchFocusTarget,
             ),
           ),
         JsonJugaadStatus.success when result != null => _withOutputScrollBehavior(
@@ -116,9 +123,14 @@ class _OutputShell extends StatelessWidget {
 }
 
 class _JsonOutputExplorer extends StatefulWidget {
-  const _JsonOutputExplorer({super.key, required this.result});
+  const _JsonOutputExplorer({
+    super.key,
+    required this.result,
+    this.searchFocusTarget,
+  });
 
   final JsonJugaadResult result;
+  final OutputJsonSearchFocus? searchFocusTarget;
 
   @override
   State<_JsonOutputExplorer> createState() => _JsonOutputExplorerState();
@@ -126,20 +138,43 @@ class _JsonOutputExplorer extends StatefulWidget {
 
 class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
   late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
   late final JsonTreeSearchNavigator _searchNavigator;
   String _searchQuery = '';
   int? _matchCount;
+  bool _matchCase = false;
+  bool _wholeWord = false;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
     _searchNavigator = JsonTreeSearchNavigator();
+    _registerSearchFocus();
+  }
+
+  @override
+  void didUpdateWidget(_JsonOutputExplorer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchFocusTarget != widget.searchFocusTarget) {
+      oldWidget.searchFocusTarget?.unregister();
+      _registerSearchFocus();
+    }
+  }
+
+  void _registerSearchFocus() {
+    widget.searchFocusTarget?.register(
+      focusNode: _searchFocusNode,
+      controller: _searchController,
+    );
   }
 
   @override
   void dispose() {
+    widget.searchFocusTarget?.unregister();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _searchNavigator.dispose();
     super.dispose();
   }
@@ -180,27 +215,14 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
               Text('Output', style: theme.textTheme.titleMedium),
               const SizedBox(width: 16),
               Expanded(
-                child: TextField(
+                child: JsonTreeSearchField(
                   controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search JSON…',
-                    prefixIcon: const Icon(Icons.search, size: 18),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            tooltip: 'Clear search',
-                            onPressed: _searchController.clear,
-                            icon: const Icon(Icons.clear, size: 16),
-                          )
-                        : null,
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
+                  focusNode: _searchFocusNode,
+                  matchCase: _matchCase,
+                  wholeWord: _wholeWord,
+                  showClear: _searchQuery.isNotEmpty,
+                  onMatchCaseChanged: (value) => setState(() => _matchCase = value),
+                  onWholeWordChanged: (value) => setState(() => _wholeWord = value),
                 ),
               ),
               if (_matchCount != null) ...[
@@ -284,6 +306,10 @@ class _JsonOutputExplorerState extends State<_JsonOutputExplorer> {
                     onSearchChanged: _onSearchChanged,
                     reportsSearchMatches: true,
                     repairHighlights: widget.result.repairHighlightSet,
+                    searchOptions: JsonTreeSearchOptions(
+                      matchCase: _matchCase,
+                      wholeWord: _wholeWord,
+                    ),
                   ),
                 ),
               ),

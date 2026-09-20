@@ -1,12 +1,28 @@
 import 'dart:convert';
 
 import 'confidence.dart';
+import 'jugaad_patterns.dart';
 import 'json_string_control_char_repair.dart';
 
 class JsonParseResult {
   const JsonParseResult(this.value);
 
   final Object? value;
+}
+
+/// Caches strict JSON parse results for the duration of one engine invocation.
+class JsonParseSession {
+  final Map<String, JsonParseResult?> _strictCache = {};
+
+  JsonParseResult? tryParseJson(String input) {
+    if (_strictCache.containsKey(input)) {
+      return _strictCache[input];
+    }
+
+    final result = JugaadValidator.tryParseJson(input);
+    _strictCache[input] = result;
+    return result;
+  }
 }
 
 abstract final class JugaadValidator {
@@ -25,9 +41,10 @@ abstract final class JugaadValidator {
   /// escaped JSON document. Escaped documents use `\"` at the document layer,
   /// which is not the same as a JSON string delimiter.
   static JsonParseResult? tryParseJsonRepairingLiteralControlChars(
-    String input,
-  ) {
-    final parsed = tryParseJson(input);
+    String input, {
+    JsonParseSession? session,
+  }) {
+    final parsed = _strictParse(input, session: session);
     if (parsed != null) {
       return parsed;
     }
@@ -43,6 +60,13 @@ abstract final class JugaadValidator {
     }
 
     return tryParseJson(repaired);
+  }
+
+  static JsonParseResult? _strictParse(
+    String input, {
+    JsonParseSession? session,
+  }) {
+    return session?.tryParseJson(input) ?? tryParseJson(input);
   }
 
   /// Attempts to parse a single JSON document, including escaped-layer decode
@@ -105,8 +129,7 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    final encodedPattern = RegExp(r'%[0-9A-Fa-f]{2}');
-    final matches = encodedPattern.allMatches(input).length;
+    final matches = JugaadPatterns.percentEncoded.allMatches(input).length;
     if (matches < 2) {
       return false;
     }
@@ -125,13 +148,13 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    if (!RegExp(r'^[A-Za-z0-9+/_-]+={0,2}$').hasMatch(trimmed)) {
+    if (!JugaadPatterns.base64.hasMatch(trimmed)) {
       return false;
     }
 
     final hasPadding = trimmed.contains('=');
-    final hasBase64Chars =
-        trimmed.contains(RegExp(r'[+/]')) || trimmed.contains(RegExp(r'[-_]'));
+    final hasBase64Chars = JugaadPatterns.base64SpecialChars.hasMatch(trimmed) ||
+        JugaadPatterns.base64UrlSpecialChars.hasMatch(trimmed);
     if (!hasPadding && !hasBase64Chars && trimmed.length < 16) {
       return false;
     }
@@ -145,7 +168,7 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    if (!RegExp(r'^[0-9a-fA-F]+$').hasMatch(trimmed)) {
+    if (!JugaadPatterns.hex.hasMatch(trimmed)) {
       return false;
     }
 
@@ -190,9 +213,12 @@ abstract final class JugaadValidator {
     return validPairs >= 2;
   }
 
-  static bool looksLikeNdjsonAttempt(String input) {
+  static bool looksLikeNdjsonAttempt(
+    String input, {
+    JsonParseSession? session,
+  }) {
     final trimmed = input.trim();
-    if (tryParseJson(trimmed) != null) {
+    if (_strictParse(trimmed, session: session) != null) {
       return false;
     }
 
@@ -203,7 +229,7 @@ abstract final class JugaadValidator {
     }
 
     final lines = trimmed
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -224,14 +250,17 @@ abstract final class JugaadValidator {
     return jsonishLines >= 2;
   }
 
-  static bool looksLikeNdjson(String input) {
+  static bool looksLikeNdjson(
+    String input, {
+    JsonParseSession? session,
+  }) {
     final trimmed = input.trim();
-    if (tryParseJson(trimmed) != null) {
+    if (_strictParse(trimmed, session: session) != null) {
       return false;
     }
 
     final lines = trimmed
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -242,7 +271,7 @@ abstract final class JugaadValidator {
 
     var validLines = 0;
     for (final line in lines) {
-      if (tryParseJson(line) != null) {
+      if (_strictParse(line, session: session) != null) {
         validLines++;
       }
     }
@@ -258,7 +287,7 @@ abstract final class JugaadValidator {
     }
 
     for (final part in parts) {
-      if (part.isEmpty || !RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(part)) {
+      if (part.isEmpty || !JugaadPatterns.jwtPart.hasMatch(part)) {
         return false;
       }
     }
@@ -288,7 +317,7 @@ abstract final class JugaadValidator {
   static bool looksLikeEscapedJson(String input) {
     return input.contains(r'\"') ||
         input.contains(r'\\') ||
-        RegExp(r'\\u[0-9a-fA-F]{4}').hasMatch(input);
+        JugaadPatterns.escapedUnicode.hasMatch(input);
   }
 
   /// True when input looks like a JSON object/array with escaped quotes.
@@ -439,13 +468,12 @@ abstract final class JugaadValidator {
 
   static bool looksLikeCurl(String input) {
     final trimmed = input.trim();
-    return RegExp(r'^curl(\s|$)', caseSensitive: false).hasMatch(trimmed);
+    return JugaadPatterns.curlCommand.hasMatch(trimmed);
   }
 
   static bool looksLikeHttpResponse(String input) {
-    final firstLine = input.trim().split(RegExp(r'\r?\n')).first.trim();
-    return RegExp(r'^HTTP/\d(?:\.\d)?\s+\d{3}\b', caseSensitive: false)
-        .hasMatch(firstLine);
+    final firstLine = input.trim().split(JugaadPatterns.newline).first.trim();
+    return JugaadPatterns.httpStatusLine.hasMatch(firstLine);
   }
 
   static bool looksLikeHttpHeaders(String input) {
@@ -457,7 +485,7 @@ abstract final class JugaadValidator {
     }
 
     final lines = input
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -468,7 +496,7 @@ abstract final class JugaadValidator {
 
     var headerLines = 0;
     for (final line in lines) {
-      if (RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+:\s*.+$").hasMatch(line)) {
+      if (JugaadPatterns.httpHeaderLine.hasMatch(line)) {
         headerLines++;
       }
     }
@@ -506,7 +534,7 @@ abstract final class JugaadValidator {
     }
 
     final lines = input
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trimRight())
         .where((line) => line.trim().isNotEmpty)
         .toList();
@@ -519,7 +547,7 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    return RegExp(r'^[A-Za-z_][\w-]*(,|$)').hasMatch(lines.first);
+    return JugaadPatterns.csvHeader.hasMatch(lines.first);
   }
 
   static bool looksLikeInspectableUrl(String input) {
@@ -577,7 +605,7 @@ abstract final class JugaadValidator {
     }
 
     final lines = trimmed
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trimRight())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -588,8 +616,8 @@ abstract final class JugaadValidator {
 
     var yamlLines = 0;
     for (final line in lines) {
-      if (RegExp(r'^\s*[\w.-]+:\s*.+$').hasMatch(line) ||
-          RegExp(r'^\s*-\s+.+$').hasMatch(line)) {
+      if (JugaadPatterns.yamlKeyValue.hasMatch(line) ||
+          JugaadPatterns.yamlListItem.hasMatch(line)) {
         yamlLines++;
       }
     }
@@ -615,14 +643,11 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    if (RegExp(r'^(Cookie|Set-Cookie)\s*:', caseSensitive: false).hasMatch(trimmed)) {
+    if (JugaadPatterns.cookieHeader.hasMatch(trimmed)) {
       return true;
     }
 
-    return RegExp(
-      r"^[^=;\s]+=[^;]+;\s*(Path|Domain|Expires|Max-Age|Secure|HttpOnly|SameSite)\b",
-      caseSensitive: false,
-    ).hasMatch(trimmed);
+    return JugaadPatterns.cookieAttributes.hasMatch(trimmed);
   }
 
   static bool looksLikeAuthorization(String input) {
@@ -631,14 +656,11 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    if (RegExp(r'^Authorization\s*:\s*\S+', caseSensitive: false).hasMatch(trimmed)) {
+    if (JugaadPatterns.authorizationHeader.hasMatch(trimmed)) {
       return true;
     }
 
-    return RegExp(
-      r'^(Bearer|Basic|Digest)\s+\S+\s*$',
-      caseSensitive: false,
-    ).hasMatch(trimmed);
+    return JugaadPatterns.authorizationScheme.hasMatch(trimmed);
   }
 
   static bool looksLikeMultipart(String input) {
@@ -647,15 +669,12 @@ abstract final class JugaadValidator {
       return false;
     }
 
-    final firstLine = trimmed.split(RegExp(r'\r?\n')).first.trim();
+    final firstLine = trimmed.split(JugaadPatterns.newline).first.trim();
     if (!firstLine.startsWith('--') || firstLine.length < 3) {
       return false;
     }
 
-    return RegExp(
-      r'Content-Disposition:\s*form-data',
-      caseSensitive: false,
-    ).hasMatch(trimmed);
+    return JugaadPatterns.multipartDisposition.hasMatch(trimmed);
   }
 
   static bool looksLikeHttpError(String input) {
@@ -666,16 +685,12 @@ abstract final class JugaadValidator {
     }
 
     final trimmed = input.trim();
-    if (RegExp(
-      r'DioException\b.*status code\s+[45]\d{2}',
-      caseSensitive: false,
-      dotAll: true,
-    ).hasMatch(trimmed)) {
+    if (JugaadPatterns.dioHttpError.hasMatch(trimmed)) {
       return true;
     }
 
-    final firstLine = trimmed.split(RegExp(r'\r?\n')).first.trim();
-    if (RegExp(r'^HTTP\s+[45]\d{2}\b', caseSensitive: false).hasMatch(firstLine)) {
+    final firstLine = trimmed.split(JugaadPatterns.newline).first.trim();
+    if (JugaadPatterns.httpErrorStatusLine.hasMatch(firstLine)) {
       return true;
     }
 

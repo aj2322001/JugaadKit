@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'body_content_classifier.dart';
 import 'http_response_codec.dart';
+import 'jugaad_patterns.dart';
 import 'jugaad_validator.dart';
 import '../models/jugaad_body_content.dart';
 
@@ -129,7 +130,7 @@ abstract final class HttpErrorCodec {
   }
 
   static HttpErrorData? _tryParseShorthandStatus(String input) {
-    final lines = input.split(RegExp(r'\r?\n'));
+    final lines = input.split(JugaadPatterns.newline);
     if (lines.isEmpty) {
       return null;
     }

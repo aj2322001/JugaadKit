@@ -9,6 +9,8 @@ import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_builder.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_flatten.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_index.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_options.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_navigator.dart';
 
 import 'json_tree/json_bracket_row.dart';
@@ -18,14 +20,7 @@ import 'json_tree/json_tree_controls.dart';
 import 'json_tree/json_value_row.dart';
 
 Widget _fullWidthTreeRow(Widget child) {
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      return SizedBox(
-        width: constraints.maxWidth,
-        child: child,
-      );
-    },
-  );
+  return SizedBox(width: double.infinity, child: child);
 }
 
 typedef JsonTreeSearchListener = void Function(
@@ -47,6 +42,7 @@ class JsonTreeView extends StatefulWidget {
     this.detachPathFooter = false,
     this.reportsSearchMatches = true,
     this.repairHighlights = JsonRepairHighlightSet.empty,
+    this.searchOptions = const JsonTreeSearchOptions(),
   });
 
   final Object? rootValue;
@@ -60,6 +56,7 @@ class JsonTreeView extends StatefulWidget {
   final bool detachPathFooter;
   final bool reportsSearchMatches;
   final JsonRepairHighlightSet repairHighlights;
+  final JsonTreeSearchOptions searchOptions;
 
   JsonTreeSearchSession? get _session => searchSession ?? searchNavigator;
 
@@ -74,6 +71,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   static const int _maxScrollAttempts = 64;
 
   late JsonTreeNode _rootNode;
+  late JsonTreeSearchIndex _searchIndex;
   late List<VisibleTreeRow> _visibleRows;
   final ScrollController _scrollController = ScrollController();
   final Set<String> _collapsedPaths = {};
@@ -89,13 +87,16 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   GlobalKey? _scrollTargetKey;
   Timer? _hoverClearTimer;
   Timer? _searchDebounceTimer;
+  Timer? _scrollIdleTimer;
   JsonTreeSearchSession? _boundSession;
   int _scrollToActiveMatchToken = 0;
+  final ValueNotifier<bool> _ignoreHover = ValueNotifier(false);
 
   @override
   void initState() {
     super.initState();
     _rootNode = JsonTreeBuilder.build(widget.rootValue);
+    _searchIndex = JsonTreeSearchIndex.fromValue(widget.rootValue);
     widget.searchController.addListener(_onSearchTextChanged);
     _searchQuery = widget.searchController.text;
     _rebuildVisibleRows();
@@ -119,6 +120,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     }
     if (oldWidget.rootValue != widget.rootValue) {
       _rootNode = JsonTreeBuilder.build(widget.rootValue);
+      _searchIndex = JsonTreeSearchIndex.fromValue(widget.rootValue);
       _collapsedPaths.clear();
       _savedCollapsedPaths = null;
       _searchQuery = widget.searchController.text;
@@ -128,9 +130,23 @@ class _JsonTreeViewState extends State<JsonTreeView> {
       _hoverClearTimer?.cancel();
       _rebuildVisibleRows();
       _runSearch(_searchQuery);
-      _publishSearchState(resetActiveIndex: true);
+      _applySearchResultSideEffects(resetActiveIndex: true);
+      _publishSearchState(
+        resetActiveIndex: true,
+        scheduleScroll: true,
+        defer: true,
+      );
+    } else if (oldWidget.searchOptions != widget.searchOptions) {
+      _runSearch(_searchQuery);
+      _applySearchResultSideEffects(resetActiveIndex: true);
+      _rebuildVisibleRows();
+      _publishSearchState(
+        resetActiveIndex: true,
+        scheduleScroll: _activeMatchIndex != null,
+        defer: true,
+      );
     } else if (oldWidget.reportsSearchMatches != widget.reportsSearchMatches) {
-      _publishSearchState(resetActiveIndex: false);
+      _publishSearchState(resetActiveIndex: false, defer: true);
     } else {
       _syncActiveIndexFromSession();
     }
@@ -140,12 +156,14 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   void dispose() {
     _hoverClearTimer?.cancel();
     _searchDebounceTimer?.cancel();
+    _scrollIdleTimer?.cancel();
     widget.searchController.removeListener(_onSearchTextChanged);
     _unbindSearchSession();
     _scrollController.dispose();
     if (widget.hoveredPathNotifier == null) {
       _internalHoveredPath.dispose();
     }
+    _ignoreHover.dispose();
     super.dispose();
   }
 
@@ -229,44 +247,68 @@ class _JsonTreeViewState extends State<JsonTreeView> {
     setState(() {
       _searchQuery = query;
       _runSearch(query);
-      final matchCount = _searchResult?.matchCount ?? 0;
-      if (matchCount == 0) {
-        _activeMatchIndex = null;
-        _scrollTargetKey = null;
-      } else {
-        _activeMatchIndex = widget._session?.activeIndex ?? 0;
-        if (_activeMatchIndex! >= matchCount) {
-          _activeMatchIndex = 0;
-        }
-        _scrollTargetKey = GlobalKey();
-      }
+      _applySearchResultSideEffects(resetActiveIndex: true);
       _rebuildVisibleRows();
     });
-    _publishSearchState(resetActiveIndex: true);
-    if (_activeMatchIndex != null) {
-      _scheduleScrollToActiveMatch();
-    }
+    _publishSearchState(resetActiveIndex: true, scheduleScroll: true);
   }
 
-  void _publishSearchState({required bool resetActiveIndex}) {
-    widget.onSearchChanged?.call(_searchQuery, _searchResult);
-
-    if (!widget.reportsSearchMatches) {
-      return;
-    }
-
-    final session = widget._session;
-    if (session == null) {
-      return;
-    }
-
+  void _applySearchResultSideEffects({required bool resetActiveIndex}) {
     final matchCount = _searchResult?.matchCount ?? 0;
-    if (matchCount == 0 || _searchQuery.trim().isEmpty) {
-      session.clear();
+    if (matchCount == 0) {
+      _activeMatchIndex = null;
+      _scrollTargetKey = null;
       return;
     }
 
-    session.setMatches(matchCount, resetIndex: resetActiveIndex);
+    if (resetActiveIndex) {
+      _activeMatchIndex = widget._session?.activeIndex ?? 0;
+      if (_activeMatchIndex! >= matchCount) {
+        _activeMatchIndex = 0;
+      }
+    }
+    _scrollTargetKey = GlobalKey();
+  }
+
+  void _publishSearchState({
+    required bool resetActiveIndex,
+    bool scheduleScroll = false,
+    bool defer = false,
+  }) {
+    void publish() {
+      widget.onSearchChanged?.call(_searchQuery, _searchResult);
+
+      if (!widget.reportsSearchMatches) {
+        return;
+      }
+
+      final session = widget._session;
+      if (session == null) {
+        return;
+      }
+
+      final matchCount = _searchResult?.matchCount ?? 0;
+      if (matchCount == 0 || _searchQuery.trim().isEmpty) {
+        session.clear();
+        return;
+      }
+
+      session.setMatches(matchCount, resetIndex: resetActiveIndex);
+
+      if (scheduleScroll && _activeMatchIndex != null) {
+        _scheduleScrollToActiveMatch();
+      }
+    }
+
+    if (defer) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          publish();
+        }
+      });
+    } else {
+      publish();
+    }
   }
 
   String? get _activeMatchPath {
@@ -419,7 +461,11 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   void _runSearch(String query) {
     _searchResult = query.trim().isEmpty
         ? null
-        : JsonTreeSearch.search(_rootNode, query);
+        : JsonTreeSearch.searchIndex(
+            _searchIndex,
+            query,
+            options: widget.searchOptions,
+          );
   }
 
   void _rebuildVisibleRows() {
@@ -442,10 +488,37 @@ class _JsonTreeViewState extends State<JsonTreeView> {
   }
 
   void _onNodeHover(JsonTreeNode node) {
+    if (_ignoreHover.value) {
+      return;
+    }
     _hoverClearTimer?.cancel();
     if (_hoveredPath.value != node.path) {
       _hoveredPath.value = node.path;
     }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (widget.shrinkWrap) {
+      return false;
+    }
+
+    if (notification is ScrollStartNotification ||
+        notification is ScrollUpdateNotification) {
+      _ignoreHover.value = true;
+      _scrollIdleTimer?.cancel();
+      return false;
+    }
+
+    if (notification is ScrollEndNotification) {
+      _scrollIdleTimer?.cancel();
+      _scrollIdleTimer = Timer(const Duration(milliseconds: 120), () {
+        if (mounted) {
+          _ignoreHover.value = false;
+        }
+      });
+    }
+
+    return false;
   }
 
   void _scheduleHoverClear() {
@@ -461,13 +534,17 @@ class _JsonTreeViewState extends State<JsonTreeView> {
 
   @override
   Widget build(BuildContext context) {
-    final treeList = ListView.builder(
+    final treeList = NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: ListView.builder(
       controller: widget.shrinkWrap ? null : _scrollController,
       shrinkWrap: widget.shrinkWrap,
       physics: widget.shrinkWrap
           ? const NeverScrollableScrollPhysics()
           : null,
-      cacheExtent: _activeMatchPath != null ? 2400 : 480,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: false,
+      cacheExtent: _activeMatchPath != null ? 2400 : 800,
       padding: const EdgeInsets.only(
         right: JsonTreeLayout.trailingActionsWidth +
             JsonTreeLayout.scrollbarGutter,
@@ -520,10 +597,11 @@ class _JsonTreeViewState extends State<JsonTreeView> {
               isExpanded: row.isExpanded,
               searchQuery: _searchQuery,
               searchResult: _searchResult,
-              hoveredPath: _hoveredPath,
+              searchOptions: widget.searchOptions,
               isActiveSearchMatch: isActiveSearchMatch,
               onToggle: _toggleExpansion,
               onHover: _onNodeHover,
+              isHoverIgnored: () => _ignoreHover.value,
               repairHighlights: widget.repairHighlights,
             ),
           );
@@ -535,13 +613,15 @@ class _JsonTreeViewState extends State<JsonTreeView> {
             node: node,
             searchQuery: _searchQuery,
             searchResult: _searchResult,
-            hoveredPath: _hoveredPath,
+            searchOptions: widget.searchOptions,
             isActiveSearchMatch: isActiveSearchMatch,
             onHover: _onNodeHover,
+            isHoverIgnored: () => _ignoreHover.value,
             repairHighlights: widget.repairHighlights,
           ),
         );
       },
+    ),
     );
 
     final content = Column(

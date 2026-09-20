@@ -1,4 +1,5 @@
 import '../models/json_repair_highlight.dart';
+import 'jugaad_patterns.dart';
 import 'json_repair_engine.dart';
 import 'jugaad_validator.dart';
 
@@ -106,18 +107,22 @@ class NdjsonParseResult {
 }
 
 abstract final class NdjsonCodec {
-  static NdjsonParseResult? tryParse(String input) {
-    if (!JugaadValidator.looksLikeNdjson(input)) {
+  static NdjsonParseResult? tryParse(
+    String input, {
+    JsonParseSession? session,
+  }) {
+    if (!JugaadValidator.looksLikeNdjson(input, session: session)) {
       return null;
     }
 
     final lines = <Object?>[];
-    for (final line in input.split(RegExp(r'\r?\n'))) {
+    for (final line in input.split(JugaadPatterns.newline)) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
         continue;
       }
-      final parsed = JugaadValidator.tryParseJson(trimmed);
+      final parsed = session?.tryParseJson(trimmed) ??
+          JugaadValidator.tryParseJson(trimmed);
       if (parsed == null) {
         return null;
       }

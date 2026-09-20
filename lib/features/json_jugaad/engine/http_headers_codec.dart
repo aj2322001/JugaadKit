@@ -1,3 +1,4 @@
+import 'jugaad_patterns.dart';
 import 'jugaad_validator.dart';
 
 class HttpHeaderBlock {
@@ -13,7 +14,7 @@ abstract final class HttpHeadersCodec {
     }
 
     final lines = input
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trimRight())
         .where((line) => line.trim().isNotEmpty)
         .toList();

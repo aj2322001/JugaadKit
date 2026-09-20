@@ -8,6 +8,7 @@ import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 import 'package:jugaadkit/features/json_jugaad/theme/json_syntax_colors.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_copy_util.dart';
 import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search.dart';
+import 'package:jugaadkit/features/json_jugaad/utils/json_tree_search_options.dart';
 
 import 'highlighted_text.dart';
 import 'json_repair_tooltip.dart';
@@ -16,15 +17,16 @@ import 'json_tree_copy_target.dart';
 
 typedef JsonTreeHoverCallback = void Function(JsonTreeNode node);
 
-class JsonValueRow extends StatelessWidget {
+class JsonValueRow extends StatefulWidget {
   const JsonValueRow({
     super.key,
     required this.node,
     required this.searchQuery,
     required this.searchResult,
-    required this.hoveredPath,
+    this.searchOptions = const JsonTreeSearchOptions(),
     this.isActiveSearchMatch = false,
     required this.onHover,
+    required this.isHoverIgnored,
     this.repairHighlights = JsonRepairHighlightSet.empty,
   });
 
@@ -33,139 +35,160 @@ class JsonValueRow extends StatelessWidget {
   final JsonTreeNode node;
   final String searchQuery;
   final JsonTreeSearchResult? searchResult;
-  final ValueNotifier<String?> hoveredPath;
+  final JsonTreeSearchOptions searchOptions;
   final bool isActiveSearchMatch;
   final JsonTreeHoverCallback onHover;
+  final bool Function() isHoverIgnored;
   final JsonRepairHighlightSet repairHighlights;
 
+  @override
+  State<JsonValueRow> createState() => _JsonValueRowState();
+}
+
+class _JsonValueRowState extends State<JsonValueRow> {
+  bool _showActions = false;
+
   Future<void> _copyPath(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: node.path));
+    await Clipboard.setData(ClipboardData(text: widget.node.path));
     if (!context.mounted) {
       return;
     }
     showCopyFeedback(context, CopyFeedbackType.path);
   }
 
+  void _handleEnter() {
+    if (widget.isHoverIgnored()) {
+      return;
+    }
+    if (!_showActions) {
+      setState(() => _showActions = true);
+    }
+    widget.onHover(widget.node);
+  }
+
+  void _handleExit() {
+    if (_showActions) {
+      setState(() => _showActions = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = JsonSyntaxColors.of(context);
-    final match = searchResult?.matchFor(node.path);
+    final node = widget.node;
+    final match = widget.searchResult?.matchFor(node.path);
     final keyStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
-      color: repairHighlights.shouldHighlightKey(node.path)
+      color: widget.repairHighlights.shouldHighlightKey(node.path)
           ? jsonRepairHighlightColor
           : colors.key,
     );
     final valueStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
-      color: repairHighlights.shouldHighlightValue(node.path)
+      color: widget.repairHighlights.shouldHighlightValue(node.path)
           ? jsonRepairHighlightColor
           : _valueColor(colors),
     );
 
-    return ValueListenableBuilder<String?>(
-      valueListenable: hoveredPath,
-      builder: (context, activePath, _) {
-        final showActions = activePath == node.path;
-
-        return RepaintBoundary(
-          child: MouseRegion(
-            onEnter: (_) => onHover(node),
-            child: SearchMatchHighlight(
-              isActive: isActiveSearchMatch,
-              child: JsonTreeRowShell(
-                depth: node.depth,
-                leading: const JsonTreeExpandLeadingSlot(),
-                trailing: JsonTreeTrailingActions(
-                  visible: showActions,
-                  onCopyPath: () => _copyPath(context),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (node.key != null) ...[
-                      JsonRepairTooltip(
-                        highlight: repairHighlights.highlightForKey(
-                          node.path,
-                        ),
-                        child: JsonTreeCopyTarget(
-                          text: node.key!,
-                          copyType: CopyFeedbackType.key,
-                          child: HighlightedText(
-                            text: node.key!,
-                            query: match?.keyMatches == true
-                                ? searchQuery
-                                : null,
-                            highlightColor: colors.searchHighlight,
-                            style: keyStyle,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ': ',
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          color: colors.structure.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    ],
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          right: _trailingContentGap,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            JsonRepairTooltip(
-                              highlight: repairHighlights.highlightForValue(
-                                node.path,
-                              ),
-                              child: JsonTreeCopyTarget(
-                                text: JsonCopyUtil.valueForClipboard(node),
-                                copyType: CopyFeedbackType.value,
-                                child: HighlightedText(
-                                  text: _formattedValue(),
-                                  query: match?.valueMatches == true
-                                      ? searchQuery
-                                      : null,
-                                  highlightColor: colors.searchHighlight,
-                                  style: valueStyle,
-                                ),
-                              ),
-                            ),
-                            if (_timestampHint != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  'timestamp ${_timestampHint!.label}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontFamily: 'monospace',
-                                    fontSize: 10,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+    return RepaintBoundary(
+      child: MouseRegion(
+        onEnter: (_) => _handleEnter(),
+        onExit: (_) => _handleExit(),
+        child: SearchMatchHighlight(
+          isActive: widget.isActiveSearchMatch,
+          child: JsonTreeRowShell(
+            depth: node.depth,
+            leading: const JsonTreeExpandLeadingSlot(),
+            trailing: JsonTreeTrailingActions(
+              visible: _showActions,
+              onCopyPath: () => _copyPath(context),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (node.key != null) ...[
+                  JsonRepairTooltip(
+                    highlight: widget.repairHighlights.highlightForKey(
+                      node.path,
+                    ),
+                    child: JsonTreeCopyTarget(
+                      text: node.key!,
+                      copyType: CopyFeedbackType.key,
+                      child: HighlightedText(
+                        text: node.key!,
+                        query: match?.keyMatches == true
+                            ? widget.searchQuery
+                            : null,
+                        highlightColor: colors.searchHighlight,
+                        searchOptions: widget.searchOptions,
+                        style: keyStyle,
                       ),
                     ),
-                  ],
+                  ),
+                  Text(
+                    ': ',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: colors.structure.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      right: JsonValueRow._trailingContentGap,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        JsonRepairTooltip(
+                          highlight: widget.repairHighlights.highlightForValue(
+                            node.path,
+                          ),
+                          child: JsonTreeCopyTarget(
+                            text: JsonCopyUtil.valueForClipboard(node),
+                            copyType: CopyFeedbackType.value,
+                            child: HighlightedText(
+                              text: _formattedValue(node),
+                              query: match?.valueMatches == true
+                                  ? widget.searchQuery
+                                  : null,
+                              highlightColor: colors.searchHighlight,
+                              searchOptions: widget.searchOptions,
+                              style: valueStyle,
+                            ),
+                          ),
+                        ),
+                        if (_timestampHint(node) != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'timestamp ${_timestampHint(node)!.label}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  String _formattedValue() {
+  String _formattedValue(JsonTreeNode node) {
     return switch (node.type) {
       JsonValueType.string => '"${node.displayText}"',
       JsonValueType.nullValue => 'null',
@@ -173,7 +196,7 @@ class JsonValueRow extends StatelessWidget {
     };
   }
 
-  TimestampHint? get _timestampHint {
+  TimestampHint? _timestampHint(JsonTreeNode node) {
     if (node.type != JsonValueType.number || node.value is! num) {
       return null;
     }
@@ -181,7 +204,7 @@ class JsonValueRow extends StatelessWidget {
   }
 
   Color _valueColor(JsonSyntaxColors colors) {
-    return switch (node.type) {
+    return switch (widget.node.type) {
       JsonValueType.string => colors.string,
       JsonValueType.number => colors.number,
       JsonValueType.boolean => colors.boolean,

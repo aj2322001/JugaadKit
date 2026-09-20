@@ -1,6 +1,8 @@
 import 'package:jugaadkit/features/json_jugaad/models/json_tree_node.dart';
 
 import 'json_path.dart';
+import 'json_tree_search_index.dart';
+import 'json_tree_search_options.dart';
 
 class JsonTreeSearchMatch {
   const JsonTreeSearchMatch({
@@ -37,39 +39,41 @@ class JsonTreeSearchResult {
 }
 
 abstract final class JsonTreeSearch {
-  static JsonTreeSearchResult search(JsonTreeNode root, String query) {
+  static JsonTreeSearchResult searchIndex(
+    JsonTreeSearchIndex index,
+    String query, {
+    JsonTreeSearchOptions options = const JsonTreeSearchOptions(),
+  }) {
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       return JsonTreeSearchResult.empty;
     }
 
     final normalized = trimmed.toLowerCase();
+    final useFastPath = !options.matchCase && !options.wholeWord;
     final matches = <JsonTreeSearchMatch>[];
     final pathsToExpand = <String>{};
 
-    void walk(JsonTreeNode node) {
-      final keyMatches = node.key != null &&
-          node.key!.toLowerCase().contains(normalized);
-      final valueMatches =
-          node.searchableText.toLowerCase().contains(normalized);
+    for (final entry in index.entries) {
+      final keyMatches = entry.key != null &&
+          (useFastPath
+              ? entry.keyLower!.contains(normalized)
+              : options.matches(entry.key!, trimmed));
+      final valueMatches = useFastPath
+          ? entry.valueLower.contains(normalized)
+          : options.matches(entry.valueSearchable, trimmed);
 
       if (keyMatches || valueMatches) {
         matches.add(
           JsonTreeSearchMatch(
-            path: node.path,
+            path: entry.path,
             keyMatches: keyMatches,
             valueMatches: valueMatches,
           ),
         );
-        _addAncestors(node.path, pathsToExpand);
-      }
-
-      for (final child in node.children) {
-        walk(child);
+        _addAncestors(entry.path, pathsToExpand);
       }
     }
-
-    walk(root);
 
     final matchByPath = {
       for (final match in matches) match.path: match,
@@ -79,6 +83,18 @@ abstract final class JsonTreeSearch {
       matches: matches,
       pathsToExpand: pathsToExpand,
       matchByPath: matchByPath,
+    );
+  }
+
+  static JsonTreeSearchResult search(
+    JsonTreeNode root,
+    String query, {
+    JsonTreeSearchOptions options = const JsonTreeSearchOptions(),
+  }) {
+    return searchIndex(
+      JsonTreeSearchIndex.fromValue(root.value),
+      query,
+      options: options,
     );
   }
 

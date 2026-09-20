@@ -1,3 +1,4 @@
+import 'jugaad_patterns.dart';
 import 'jugaad_validator.dart';
 
 class ParsedCookie {
@@ -36,7 +37,7 @@ abstract final class CookieCodec {
     }
 
     final lines = input
-        .split(RegExp(r'\r?\n'))
+        .split(JugaadPatterns.newline)
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();

@@ -88,43 +88,97 @@ class InputPanel extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: controller,
-                onChanged: onChanged,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontFamily: 'monospace',
-                  height: 1.5,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Paste data here...',
-                  alignLabelWithHint: true,
-                ),
-                keyboardType: TextInputType.multiline,
-              ),
-            ),
+            child: showStatus
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentHeight = constraints.maxHeight;
+                      final minInputHeight = contentHeight * 0.5;
+
+                      final maxStatusHeight = contentHeight - minInputHeight;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: minInputHeight,
+                              ),
+                              child: _InputTextField(
+                                controller: controller,
+                                onChanged: onChanged,
+                                theme: theme,
+                              ),
+                            ),
+                          ),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: maxStatusHeight,
+                            ),
+                            child: ListView(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              physics: const ClampingScrollPhysics(),
+                              children: [
+                                TransformationStatus(
+                                  steps: transformationSteps,
+                                  showExplorerHint: showExplorerHint,
+                                  showRepairHint: showRepairHint,
+                                  detectionSummary: detectionSummary,
+                                  confidence: confidence,
+                                  showDetectionMeta: showDetectionMeta,
+                                  ambiguousError: ambiguousError,
+                                  onTryAs: onTryAs,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  )
+                : _InputTextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    theme: theme,
+                  ),
           ),
-          if (showStatus)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
-              child: SingleChildScrollView(
-                child: TransformationStatus(
-                  steps: transformationSteps,
-                  showExplorerHint: showExplorerHint,
-                  showRepairHint: showRepairHint,
-                  detectionSummary: detectionSummary,
-                  confidence: confidence,
-                  showDetectionMeta: showDetectionMeta,
-                  ambiguousError: ambiguousError,
-                  onTryAs: onTryAs,
-                ),
-              ),
-            ),
         ],
+      ),
+    );
+  }
+}
+
+class _InputTextField extends StatelessWidget {
+  const _InputTextField({
+    required this.controller,
+    required this.onChanged,
+    required this.theme,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        maxLines: null,
+        expands: true,
+        textAlignVertical: TextAlignVertical.top,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          fontFamily: 'monospace',
+          height: 1.5,
+        ),
+        decoration: const InputDecoration(
+          hintText: 'Paste data here...',
+          alignLabelWithHint: true,
+        ),
+        keyboardType: TextInputType.multiline,
       ),
     );
   }

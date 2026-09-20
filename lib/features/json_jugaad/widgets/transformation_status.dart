@@ -146,7 +146,7 @@ class TransformationStatus extends StatelessWidget {
                             line.detail!,
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontFamily: 'monospace',
-                              color: theme.colorScheme.outline,
+                              color: theme.colorScheme.secondary,
                             ),
                           ),
                       ],

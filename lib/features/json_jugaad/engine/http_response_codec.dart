@@ -1,3 +1,4 @@
+import 'jugaad_patterns.dart';
 import 'json_body_processor.dart';
 import 'jugaad_validator.dart';
 
@@ -21,7 +22,7 @@ abstract final class HttpResponseCodec {
       return null;
     }
 
-    final lines = input.split(RegExp(r'\r?\n'));
+    final lines = input.split(JugaadPatterns.newline);
     if (lines.isEmpty) {
       return null;
     }
