@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'body_content_classifier.dart';
 import 'json_body_processor.dart';
 import 'jugaad_validator.dart';
 
@@ -112,12 +115,14 @@ abstract final class CurlCodec {
     final body = request.body;
     if (body != null && body.trim().isNotEmpty) {
       buffer.writeln('Body:');
-      final formatted = JsonBodyProcessor.formatPrettyJson(
+      final classified = BodyContentClassifier.classify(
         body,
         contentType: JsonBodyProcessor.contentTypeFromHeaders(request.headers),
       );
-      if (formatted != null) {
-        buffer.writeln(formatted);
+      if (classified.isJson) {
+        buffer.writeln(
+          const JsonEncoder.withIndent('  ').convert(classified.jsonValue),
+        );
       } else {
         buffer.writeln(body);
       }
