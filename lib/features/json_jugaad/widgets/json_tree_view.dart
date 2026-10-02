@@ -573,6 +573,7 @@ class _JsonTreeViewState extends State<JsonTreeView> {
               key: rowKey,
               node: node,
               onHover: _onNodeHover,
+              onToggle: _toggleExpansion,
               repairHighlights: widget.repairHighlights,
             ),
           );

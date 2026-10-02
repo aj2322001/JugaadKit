@@ -250,7 +250,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).at(1));
       await tester.pump();
 
       expect(find.text('name'), findsNothing);
@@ -272,17 +272,48 @@ void main() {
 
       expect(find.text('id'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).at(1));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(find.text('id'), findsNothing);
       expect(find.textContaining('{1}'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).at(1));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
 
+      expect(find.text('id'), findsOneWidget);
+    });
+
+    testWidgets('collapses and expands the root braces', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          JsonTreeView(
+            rootValue: {
+              'user': {'id': 123},
+            },
+            searchController: searchController,
+          ),
+          searchController: searchController,
+        ),
+      );
+
+      expect(find.text('user'), findsOneWidget);
+      expect(find.text('id'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('user'), findsNothing);
+      expect(find.textContaining('{1}'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.chevron_right_rounded).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('user'), findsOneWidget);
       expect(find.text('id'), findsOneWidget);
     });
 

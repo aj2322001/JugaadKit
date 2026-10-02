@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'body_content_classifier.dart';
+import 'header_value_expander.dart';
 import 'json_body_processor.dart';
 import 'jugaad_validator.dart';
 
@@ -107,7 +108,18 @@ abstract final class CurlCodec {
     if (request.headers.isNotEmpty) {
       buffer.writeln('Headers:');
       for (final header in request.headers) {
-        buffer.writeln('${header.key}: ${header.value}');
+        final expanded = HeaderValueExpander.tryExpand(header.key, header.value);
+        if (expanded != null) {
+          final keepRaw = _isAuthorizationHeader(header.key);
+          if (keepRaw) {
+            buffer.writeln('${header.key}: ${header.value}');
+          } else {
+            buffer.writeln('${header.key}:');
+          }
+          buffer.writeln(const JsonEncoder.withIndent('  ').convert(expanded));
+        } else {
+          buffer.writeln('${header.key}: ${header.value}');
+        }
       }
       buffer.writeln();
     }
@@ -129,6 +141,11 @@ abstract final class CurlCodec {
     }
 
     return buffer.toString().trimRight();
+  }
+
+  static bool _isAuthorizationHeader(String name) {
+    final lower = name.trim().toLowerCase();
+    return lower == 'authorization' || lower == 'proxy-authorization';
   }
 
   static String _normalize(String input) {

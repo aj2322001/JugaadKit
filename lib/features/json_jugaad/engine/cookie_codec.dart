@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'jugaad_patterns.dart';
 import 'jugaad_validator.dart';
 
@@ -73,10 +75,15 @@ abstract final class CookieCodec {
       }
 
       final cookie = _parseSetCookieValue(line);
-      if (cookie == null) {
+      if (cookie != null) {
+        cookies.add(cookie);
+        continue;
+      }
+
+      if (!JugaadValidator.looksLikeCookieHeaderValue(line)) {
         return null;
       }
-      cookies.add(cookie);
+      cookies.addAll(_parseCookieHeaderValue(line));
     }
 
     if (cookies.isEmpty) {
@@ -86,7 +93,30 @@ abstract final class CookieCodec {
     return CookieParseResult(cookies: cookies);
   }
 
+  /// Name/value map for cookies without attributes; repeated names become a
+  /// list. Returns null when any cookie carries Set-Cookie attributes.
+  static Map<String, Object?>? toJsonMap(CookieParseResult result) {
+    if (result.cookies.any((cookie) => cookie.attributes.isNotEmpty)) {
+      return null;
+    }
+
+    final collected = <String, List<String>>{};
+    for (final cookie in result.cookies) {
+      (collected[cookie.name] ??= []).add(cookie.value);
+    }
+
+    return {
+      for (final entry in collected.entries)
+        entry.key: entry.value.length == 1 ? entry.value.first : entry.value,
+    };
+  }
+
   static String format(CookieParseResult result) {
+    final jsonMap = toJsonMap(result);
+    if (jsonMap != null) {
+      return const JsonEncoder.withIndent('  ').convert(jsonMap);
+    }
+
     final buffer = StringBuffer();
     for (var i = 0; i < result.cookies.length; i++) {
       if (i > 0) {

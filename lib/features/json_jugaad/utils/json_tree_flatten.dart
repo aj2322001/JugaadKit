@@ -26,32 +26,39 @@ abstract final class JsonTreeFlatten {
 
     void visit(JsonTreeNode node) {
       if (node.isExpandable) {
-        if (node.path == JsonPath.root && node.key == null) {
-          rows.add(
-            VisibleTreeRow(
-              node: node,
-              isExpanded: true,
-              isOpenBracket: true,
-            ),
-          );
-          for (final child in node.children) {
-            visit(child);
-          }
-          rows.add(
-            VisibleTreeRow(
-              node: node,
-              isExpanded: true,
-              isCloseBracket: true,
-            ),
-          );
-          return;
-        }
-
         final expanded = _isExpanded(
           node.path,
           collapsedPaths,
           forceExpandedPaths,
         );
+
+        // Root keeps a dedicated opening-bracket row when expanded so the
+        // top-level `{` / `[` stays visually distinct, but it can still collapse.
+        if (node.path == JsonPath.root && node.key == null) {
+          if (expanded) {
+            rows.add(
+              VisibleTreeRow(
+                node: node,
+                isExpanded: true,
+                isOpenBracket: true,
+              ),
+            );
+            for (final child in node.children) {
+              visit(child);
+            }
+            rows.add(
+              VisibleTreeRow(
+                node: node,
+                isExpanded: true,
+                isCloseBracket: true,
+              ),
+            );
+          } else {
+            rows.add(VisibleTreeRow(node: node, isExpanded: false));
+          }
+          return;
+        }
+
         rows.add(VisibleTreeRow(node: node, isExpanded: expanded));
         if (expanded) {
           for (final child in node.children) {

@@ -5,6 +5,7 @@ import 'body_content_classifier.dart';
 import 'json_body_processor.dart';
 import 'cookie_codec.dart';
 import 'curl_codec.dart';
+import 'header_value_expander.dart';
 import 'http_error_codec.dart';
 import 'http_headers_codec.dart';
 import 'http_response_codec.dart';
@@ -58,11 +59,17 @@ abstract final class StructuredOutputBuilder {
     ];
 
     if (request.headers.isNotEmpty) {
+      final expanded = HeaderValueExpander.expandAll(request.headers);
       sections.add(
         JugaadOutputSection(
           title: 'Headers',
           type: JugaadSectionType.headers,
           headers: request.headers,
+          structuredHeaderValues: expanded.isEmpty
+              ? null
+              : {
+                  for (final entry in expanded) entry.key: entry.value,
+                },
         ),
       );
     }
@@ -142,6 +149,19 @@ abstract final class StructuredOutputBuilder {
   }
 
   static JugaadStructuredOutput fromCookie(CookieParseResult result) {
+    final jsonMap = CookieCodec.toJsonMap(result);
+    if (jsonMap != null) {
+      return JugaadStructuredOutput(
+        sections: [
+          JugaadOutputSection(
+            title: result.cookies.length > 1 ? 'Cookies' : 'Cookie',
+            type: JugaadSectionType.body,
+            body: JugaadBodyContent.json(jsonMap),
+          ),
+        ],
+      );
+    }
+
     final sections = <JugaadOutputSection>[];
 
     for (var i = 0; i < result.cookies.length; i++) {

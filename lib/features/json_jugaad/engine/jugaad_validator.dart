@@ -647,7 +647,33 @@ abstract final class JugaadValidator {
       return true;
     }
 
-    return JugaadPatterns.cookieAttributes.hasMatch(trimmed);
+    if (JugaadPatterns.cookieAttributes.hasMatch(trimmed)) {
+      return true;
+    }
+
+    return looksLikeCookieHeaderValue(trimmed);
+  }
+
+  /// A bare `Cookie` header value such as `a=1; b=2`, without the `Cookie:`
+  /// prefix. Tolerates a minority of malformed segments.
+  static bool looksLikeCookieHeaderValue(String input) {
+    final trimmed = input.trim();
+    if (trimmed.contains('\n') ||
+        !trimmed.contains(';') ||
+        looksLikeJsonCandidate(trimmed) ||
+        looksLikeStandaloneUrl(trimmed)) {
+      return false;
+    }
+
+    final segments = trimmed
+        .split(';')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+
+    final validPairs =
+        segments.where(JugaadPatterns.cookiePair.hasMatch).length;
+    return validPairs >= 2 && validPairs * 2 > segments.length;
   }
 
   static bool looksLikeAuthorization(String input) {

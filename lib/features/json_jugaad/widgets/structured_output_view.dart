@@ -304,6 +304,9 @@ class _StructuredSectionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bodyReportsSearch = reportsSearchMatches &&
+        sections.any((section) => section.body?.isJson ?? false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -317,6 +320,7 @@ class _StructuredSectionsList extends StatelessWidget {
             detachJsonPathFooter: detachJsonPathFooter,
             hoveredPathNotifier: hoveredPathNotifier,
             reportsSearchMatches: reportsSearchMatches,
+            headersDriveSearch: !bodyReportsSearch,
             searchOptions: searchOptions,
           ),
         ],
@@ -334,6 +338,7 @@ class _StructuredSectionView extends StatelessWidget {
     this.detachJsonPathFooter = false,
     this.hoveredPathNotifier,
     this.reportsSearchMatches = false,
+    this.headersDriveSearch = false,
     this.searchOptions = const JsonTreeSearchOptions(),
   });
 
@@ -344,6 +349,7 @@ class _StructuredSectionView extends StatelessWidget {
   final bool detachJsonPathFooter;
   final ValueNotifier<String?>? hoveredPathNotifier;
   final bool reportsSearchMatches;
+  final bool headersDriveSearch;
   final JsonTreeSearchOptions searchOptions;
 
   @override
@@ -358,7 +364,17 @@ class _StructuredSectionView extends StatelessWidget {
               statusCode: section.statusCode!,
               statusText: section.statusText ?? '',
             ),
-          JugaadSectionType.headers => _HeaderRows(headers: section.headers!),
+          JugaadSectionType.headers => _HeaderRows(
+              headers: section.headers!,
+              structuredValues: section.structuredHeaderValues,
+              searchController: searchController,
+              searchNavigator: searchNavigator,
+              onSearchChanged: onSearchChanged,
+              detachPathFooter: detachJsonPathFooter,
+              hoveredPathNotifier: hoveredPathNotifier,
+              reportsSearchMatches: reportsSearchMatches && headersDriveSearch,
+              searchOptions: searchOptions,
+            ),
           JugaadSectionType.methodUrl => _MethodUrlContent(
               method: section.method!,
               url: section.url!,
@@ -503,23 +519,167 @@ class _CopyableLabeledValueRow extends StatelessWidget {
 }
 
 class _HeaderRows extends StatelessWidget {
-  const _HeaderRows({required this.headers});
+  const _HeaderRows({
+    required this.headers,
+    this.structuredValues,
+    this.searchController,
+    this.searchNavigator,
+    this.onSearchChanged,
+    this.detachPathFooter = false,
+    this.hoveredPathNotifier,
+    this.reportsSearchMatches = false,
+    this.searchOptions = const JsonTreeSearchOptions(),
+  });
 
   final List<MapEntry<String, String>> headers;
+  final Map<String, Object?>? structuredValues;
+  final TextEditingController? searchController;
+  final JsonTreeSearchNavigator? searchNavigator;
+  final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
+  final bool detachPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool reportsSearchMatches;
+  final JsonTreeSearchOptions searchOptions;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final header in headers)
+    final children = <Widget>[];
+    var reportedSearch = false;
+
+    for (final header in headers) {
+      final structured = structuredValues?[header.key];
+      if (structured == null) {
+        children.add(
           _CopyableLabeledValueRow(
             label: header.key,
             value: header.value,
             labelWidth: 160,
             labelMonospace: true,
           ),
-      ],
+        );
+        continue;
+      }
+
+      final driveSearch = reportsSearchMatches && !reportedSearch;
+      if (driveSearch) {
+        reportedSearch = true;
+      }
+
+      children.add(
+        _StructuredHeaderValueRow(
+          label: header.key,
+          value: structured,
+          rawValue: _shouldKeepRawHeaderValue(header.key) ? header.value : null,
+          searchController: searchController!,
+          searchNavigator: searchNavigator,
+          onSearchChanged: onSearchChanged,
+          detachPathFooter: detachPathFooter,
+          hoveredPathNotifier: hoveredPathNotifier,
+          reportsSearchMatches: driveSearch,
+          searchOptions: searchOptions,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
+  }
+
+  static bool _shouldKeepRawHeaderValue(String name) {
+    final lower = name.trim().toLowerCase();
+    return lower == 'authorization' || lower == 'proxy-authorization';
+  }
+}
+
+class _StructuredHeaderValueRow extends StatelessWidget {
+  const _StructuredHeaderValueRow({
+    required this.label,
+    required this.value,
+    required this.searchController,
+    this.rawValue,
+    this.searchNavigator,
+    this.onSearchChanged,
+    this.detachPathFooter = false,
+    this.hoveredPathNotifier,
+    this.reportsSearchMatches = false,
+    this.searchOptions = const JsonTreeSearchOptions(),
+  });
+
+  final String label;
+  final Object? value;
+  final String? rawValue;
+  final TextEditingController searchController;
+  final JsonTreeSearchNavigator? searchNavigator;
+  final void Function(String query, JsonTreeSearchResult? result)? onSearchChanged;
+  final bool detachPathFooter;
+  final ValueNotifier<String?>? hoveredPathNotifier;
+  final bool reportsSearchMatches;
+  final JsonTreeSearchOptions searchOptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 160,
+            child: JsonTreeCopyTarget(
+              text: label,
+              copyType: CopyFeedbackType.key,
+              child: Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (rawValue != null) ...[
+                  JsonTreeCopyTarget(
+                    text: rawValue!,
+                    copyType: CopyFeedbackType.value,
+                    child: Text(
+                      rawValue!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        fontSize:
+                            (theme.textTheme.bodySmall?.fontSize ?? 12) * 0.78,
+                        height: 1.3,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                JsonTreeView(
+                  rootValue: value,
+                  searchController: searchController,
+                  searchNavigator: reportsSearchMatches ? searchNavigator : null,
+                  onSearchChanged: reportsSearchMatches ? onSearchChanged : null,
+                  reportsSearchMatches: reportsSearchMatches,
+                  shrinkWrap: true,
+                  showPathFooter: !detachPathFooter,
+                  detachPathFooter: detachPathFooter,
+                  hoveredPathNotifier: hoveredPathNotifier,
+                  searchOptions: searchOptions,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

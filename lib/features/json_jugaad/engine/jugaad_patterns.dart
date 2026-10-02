@@ -22,6 +22,7 @@ abstract final class JugaadPatterns {
 
   static final cookieHeader =
       RegExp(r'^(Cookie|Set-Cookie)\s*:', caseSensitive: false);
+  static final cookiePair = RegExp(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+=[^;]*$");
   static final cookieAttributes = RegExp(
     r"^[^=;\s]+=[^;]+;\s*(Path|Domain|Expires|Max-Age|Secure|HttpOnly|SameSite)\b",
     caseSensitive: false,

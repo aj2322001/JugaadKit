@@ -16,6 +16,7 @@ class JugaadOutputSection {
     this.statusCode,
     this.statusText,
     this.headers,
+    this.structuredHeaderValues,
     this.method,
     this.url,
     this.fields,
@@ -28,6 +29,9 @@ class JugaadOutputSection {
   final int? statusCode;
   final String? statusText;
   final List<MapEntry<String, String>>? headers;
+
+  /// Header name → decoded JSON value shown in place of the raw string.
+  final Map<String, Object?>? structuredHeaderValues;
   final String? method;
   final String? url;
   final List<MapEntry<String, String>>? fields;
@@ -47,6 +51,16 @@ class JugaadStructuredOutput {
         return body.jsonValue;
       }
     }
+    for (final section in sections) {
+      final values = section.structuredHeaderValues;
+      if (values != null && values.isNotEmpty) {
+        return values.values.first;
+      }
+    }
     return null;
   }
+
+  bool get hasStructuredHeaderJson => sections.any(
+        (section) => section.structuredHeaderValues?.isNotEmpty ?? false,
+      );
 }

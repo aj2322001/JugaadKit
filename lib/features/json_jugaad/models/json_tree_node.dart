@@ -154,7 +154,16 @@ class JsonTreeNode {
     if (key != null) {
       return key!;
     }
-    return 'root';
+    return '';
+  }
+
+  /// Bracket / count text shown after the key (or alone for the root).
+  String expansionSuffix({required bool isExpanded}) {
+    if (isExpanded) {
+      return key == null ? openingBracket : ' $openingBracket';
+    }
+    final count = countSuffix;
+    return key == null ? count.trimLeft() : count;
   }
 
   String get countSuffix {

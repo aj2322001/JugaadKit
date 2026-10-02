@@ -82,7 +82,7 @@ class _JsonExpandableRowState extends State<JsonExpandableRow> {
     final match = widget.searchResult?.matchFor(node.path);
     final highlightBracket =
         widget.repairHighlights.shouldHighlightOpeningBracket(node.path);
-    final suffix = widget.isExpanded ? ' ${node.openingBracket}' : node.countSuffix;
+    final suffix = node.expansionSuffix(isExpanded: widget.isExpanded);
     final keyStyle = TextStyle(
       fontFamily: 'monospace',
       fontSize: 13,
@@ -143,22 +143,12 @@ class _JsonExpandableRowState extends State<JsonExpandableRow> {
                           query: match?.keyMatches == true
                               ? widget.searchQuery
                               : null,
-                              highlightColor: colors.searchHighlight,
-                              searchOptions: widget.searchOptions,
-                              style: keyStyle,
-                            ),
-                          ),
-                        )
-                      else
-                        HighlightedText(
-                          text: node.headerLabel,
-                          query: match?.keyMatches == true
-                              ? widget.searchQuery
-                              : null,
                           highlightColor: colors.searchHighlight,
                           searchOptions: widget.searchOptions,
                           style: keyStyle,
                         ),
+                      ),
+                    ),
                   JsonRepairTooltip(
                     highlight: highlightBracket
                         ? widget.repairHighlights.highlightForStructure(
